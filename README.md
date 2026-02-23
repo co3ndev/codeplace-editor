@@ -89,7 +89,7 @@ On first launch, CodePlace will create a configuration directory in your home fo
 
 ## Installation
 
-Pre-built files are available via [GitHub Packages](https://github.com/co3ndev/codeplace-editor/packages) for Linux (x86_64, arm64. These contain the Qt6 runtime, which is needed for the application to run. 
+Pre-built files are available via our [Releases]([https://github.com/co3ndev/codeplace-editor/packages](https://github.com/co3ndev/codeplace-editor/tree/main/releases)) for Linux (x86_64, arm64. These contain the Qt6 runtime, which is needed for the application to run. 
 
 ---
 

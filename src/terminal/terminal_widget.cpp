@@ -295,9 +295,19 @@ void TerminalWidget::updateTheme() {
 }
 
 QString TerminalWidget::detectShell() {
+#ifdef Q_OS_WIN
+    char* comspec = getenv("COMSPEC");
+    if (comspec) return QString::fromLocal8Bit(comspec);
+    return "cmd.exe";
+#else
     char* shell = getenv("SHELL");
     if (shell) return QString::fromLocal8Bit(shell);
+#ifdef Q_OS_MAC
+    return "/bin/zsh";
+#else
     return "/bin/bash";
+#endif
+#endif
 }
 
 void TerminalWidget::onProcessFinished(int exitCode) {

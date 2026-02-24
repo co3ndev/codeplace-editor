@@ -19,6 +19,10 @@ namespace Terminal {
 TerminalWidget::TerminalWidget(QWidget *parent, const QString &workingDirectory)
     : QPlainTextEdit(parent), m_workingDirectory(workingDirectory) {
     
+    if (m_workingDirectory.isEmpty()) {
+        m_workingDirectory = Core::ProjectManager::instance().projectRoot();
+    }
+    
     m_shell = detectShell();
     
     m_restartButton = new QPushButton("New Terminal Session?", this);
@@ -57,7 +61,16 @@ TerminalWidget::~TerminalWidget() {
 }
 
 void TerminalWidget::setWorkingDirectory(const QString &dir) {
+    if (m_workingDirectory == dir) return;
     m_workingDirectory = dir;
+
+    if (m_pty && m_pty->isRunning()) {
+#ifdef Q_OS_WIN
+        sendInput(QString("cd /d \"%1\"\r\n").arg(m_workingDirectory));
+#else
+        sendInput(QString("cd \"%1\"\n").arg(m_workingDirectory));
+#endif
+    }
 }
 
 void TerminalWidget::sendInput(const QString &input) {

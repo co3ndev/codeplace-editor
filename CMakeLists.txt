@@ -58,6 +58,8 @@ set(BROWSER_SOURCES
 set(TERMINAL_SOURCES
     src/terminal/terminal_widget.h
     src/terminal/terminal_widget.cpp
+    src/terminal/pty_process.h
+    src/terminal/pty_process.cpp
 )
  
  # Search sources
@@ -127,6 +129,10 @@ add_executable(codeplace
 
 target_compile_options(codeplace PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(codeplace PRIVATE Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network Qt6::Concurrent)
+
+if(UNIX)
+    target_link_libraries(codeplace PRIVATE util)
+endif()
 
 # Deployment/Packaging
 if(TARGET codeplace)

@@ -129,7 +129,18 @@ For more help, view our [Issues](https://github.com/co3ndev/codeplace-editor/iss
 
 ## Contributing
 
-We welcome contributions from the community — bug fixes, new features, documentation improvements, whatever you're up for. See the [Contribution Guide](CONTRIBUTING_GUIDE.md) to get started.
+We welcome contributions from the community — bug reports/fixes, new features, documentation improvements, whatever you're up for. See the [Contribution Guide](CONTRIBUTING_GUIDE.md) to get started.
+
+---
+
+## Branches
+
+To ensure stability, we follow a simple branching model:
+
+- **`main`**: The stable branch. This is where releases are tagged from.
+- **`testing`**: Our active development branch. All new code moves here first for validation and community testing before being merged into `main`.
+
+Please base your contributions on the `testing` branch when possible.
 
 ---
 

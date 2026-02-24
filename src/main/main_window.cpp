@@ -362,25 +362,21 @@ void MainWindow::createMenus() {
     toggleFileBrowserAction->setCheckable(true);
     toggleFileBrowserAction->setChecked(m_sidebarDock->isVisible());
     m_actionMap["Toggle File Browser"] = toggleFileBrowserAction;
-    connect(m_sidebarDock, &QDockWidget::visibilityChanged, toggleFileBrowserAction, &QAction::setChecked);
 
     auto *toggleSearchAction = appearanceSubMenu->addAction("S&earch", [this](bool checked) { m_searchDock->setVisible(checked); });
     toggleSearchAction->setCheckable(true);
     toggleSearchAction->setChecked(m_searchDock->isVisible());
     m_actionMap["Toggle Search"] = toggleSearchAction;
-    connect(m_searchDock, &QDockWidget::visibilityChanged, toggleSearchAction, &QAction::setChecked);
 
     auto *toggleOutlineAction = appearanceSubMenu->addAction("&Outline", [this](bool checked) { m_outlineDock->setVisible(checked); });
     toggleOutlineAction->setCheckable(true);
     toggleOutlineAction->setChecked(m_outlineDock->isVisible());
     m_actionMap["Toggle Outline"] = toggleOutlineAction;
-    connect(m_outlineDock, &QDockWidget::visibilityChanged, toggleOutlineAction, &QAction::setChecked);
 
     auto *toggleGitScmAction = appearanceSubMenu->addAction("Source &Control", [this](bool checked) { m_gitscmDock->setVisible(checked); });
     toggleGitScmAction->setCheckable(true);
     toggleGitScmAction->setChecked(m_gitscmDock->isVisible());
     m_actionMap["Toggle Source Control"] = toggleGitScmAction;
-    connect(m_gitscmDock, &QDockWidget::visibilityChanged, toggleGitScmAction, &QAction::setChecked);
 
     appearanceSubMenu->addSeparator();
 
@@ -388,13 +384,11 @@ void MainWindow::createMenus() {
     toggleTerminalAction->setCheckable(true);
     toggleTerminalAction->setChecked(m_terminalDock->isVisible());
     m_actionMap["Toggle Terminal"] = toggleTerminalAction;
-    connect(m_terminalDock, &QDockWidget::visibilityChanged, toggleTerminalAction, &QAction::setChecked);
 
     auto *toggleProblemsAction = appearanceSubMenu->addAction("&Problems", [this](bool checked) { m_problemsDock->setVisible(checked); });
     toggleProblemsAction->setCheckable(true);
     toggleProblemsAction->setChecked(m_problemsDock->isVisible());
     m_actionMap["Toggle Problems"] = toggleProblemsAction;
-    connect(m_problemsDock, &QDockWidget::visibilityChanged, toggleProblemsAction, &QAction::setChecked);
 
     appearanceSubMenu->addSeparator();
 
@@ -402,6 +396,17 @@ void MainWindow::createMenus() {
     toggleStatusBarAction->setCheckable(true);
     toggleStatusBarAction->setChecked(statusBar()->isVisible());
     m_actionMap["Toggle Status Bar"] = toggleStatusBarAction;
+
+    // Sync menu states before showing
+    connect(appearanceSubMenu, &QMenu::aboutToShow, [=]() {
+        toggleFileBrowserAction->setChecked(!m_sidebarDock->isHidden());
+        toggleSearchAction->setChecked(!m_searchDock->isHidden());
+        toggleOutlineAction->setChecked(!m_outlineDock->isHidden());
+        toggleGitScmAction->setChecked(!m_gitscmDock->isHidden());
+        toggleTerminalAction->setChecked(!m_terminalDock->isHidden());
+        toggleProblemsAction->setChecked(!m_problemsDock->isHidden());
+        toggleStatusBarAction->setChecked(statusBar()->isVisible());
+    });
 
     viewMenu->addSeparator();
 

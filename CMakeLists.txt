@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(CodePlaceEditor VERSION 0.1 LANGUAGES CXX)
+# Project Information
+project(CodePlaceEditor 
+    VERSION 0.1.2 
+    LANGUAGES CXX
+    DESCRIPTION "Modern, efficient code editor"
+    HOMEPAGE_URL "https://github.com/co3ndev/codeplace-editor"
+)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -61,14 +67,14 @@ set(TERMINAL_SOURCES
     src/terminal/pty_process.h
     src/terminal/pty_process.cpp
 )
- 
+
  # Search sources
- set(SEARCH_SOURCES
+set(SEARCH_SOURCES
      src/search/search_engine.h
      src/search/search_engine.cpp
      src/search/search_widget.h
      src/search/search_widget.cpp
- )
+)
 
 # Outline sources
 set(OUTLINE_SOURCES
@@ -115,6 +121,8 @@ set(MAIN_SOURCES
     resources.qrc
 )
 
+# --- Executable & Linking ---
+
 add_executable(codeplace
     ${CORE_SOURCES}
     ${EDITOR_SOURCES}
@@ -128,61 +136,68 @@ add_executable(codeplace
 )
 
 target_compile_options(codeplace PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(codeplace PRIVATE Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network Qt6::Concurrent)
+target_link_libraries(codeplace PRIVATE 
+    Qt6::Widgets 
+    Qt6::Core 
+    Qt6::Gui 
+    Qt6::Network 
+    Qt6::Concurrent
+    util
+)
 
-if(UNIX)
-    target_link_libraries(codeplace PRIVATE util)
-endif()
+# --- Installation ---
 
-# Deployment/Packaging
-if(TARGET codeplace)
-    include(GNUInstallDirs)
-    
-    # Core Binary
-    install(TARGETS codeplace
-        BUNDLE DESTINATION .
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+include(GNUInstallDirs)
+
+install(TARGETS codeplace
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Desktop file and Icon
+install(FILES resources/codeplace.desktop DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
+install(FILES resources/codeplace.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/512x512/apps)
+
+# Installation documentation and script for Tarball distribution
+install(FILES resources/INSTALL.md resources/install.sh DESTINATION .)
+
+# Qt Deployment (Linux-specific/General)
+if(Qt6_FOUND AND COMMAND qt_generate_deploy_app_script)
+    qt_generate_deploy_app_script(
+        TARGET codeplace
+        FILENAME_VARIABLE deploy_script
+        NO_UNSUPPORTED_PLATFORM_ERROR
     )
-
-    # Resources (Icons, Desktop Entry)
-    if(UNIX AND NOT APPLE)
-        install(FILES resources/codeplace.desktop DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
-        install(FILES resources/codeplace.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/512x512/apps)
-    endif()
-
-    # Qt Deployment
-    if(Qt6_FOUND)
-        if(COMMAND qt_generate_deploy_app_script)
-            qt_generate_deploy_app_script(
-                TARGET codeplace
-                FILENAME_VARIABLE deploy_script
-                NO_UNSUPPORTED_PLATFORM_ERROR
-            )
-            install(SCRIPT ${deploy_script})
-        endif()
-    endif()
-
-    # CPack Configuration
-    set(CPACK_PACKAGE_NAME "codeplace-editor")
-    set(CPACK_PACKAGE_VENDOR "CodePlace")
-    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Modern C++ Code Editor")
-    set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/codeplace/editor")
-    set(CPACK_PACKAGE_CONTACT "Michael <developer@michaelcoen.dev>")
-    set(CPACK_PACKAGE_INSTALL_DIRECTORY "CodePlaceEditor")
-    
-    if(APPLE)
-        set(CPACK_GENERATOR "DragNDrop")
-    else()
-        set(CPACK_GENERATOR "TGZ;DEB")
-        set(CPACK_DEBIAN_PACKAGE_NAME "codeplace-editor")
-        set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Michael <michael@codeplace.com>")
-        set(CPACK_PACKAGE_DESCRIPTION "CodePlace Editor is a fast, lightweight, and modern C++ code editor designed for productivity.")
-        set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
-        set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-        set(CPACK_STRIP_FILES TRUE)
-        set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-    endif()
-
-    include(CPack)
+    install(SCRIPT ${deploy_script})
 endif()
+
+# --- Distribution Packaging (CPack) ---
+
+set(CPACK_PACKAGE_NAME "codeplace-editor")
+set(CPACK_PACKAGE_VENDOR "CodePlace")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
+set(CPACK_PACKAGE_DESCRIPTION "CodePlace Editor is a fast, lightweight, and modern code editor designed for productivity, built with C++ and Qt6.")
+set(CPACK_PACKAGE_HOMEPAGE_URL "${PROJECT_HOMEPAGE_URL}")
+set(CPACK_PACKAGE_CONTACT "Michael <developer@michaelcoen.dev>")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "CodePlaceEditor")
+
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+
+# Generators: DEB for Debian/Ubuntu, TGZ for Tarballs
+set(CPACK_GENERATOR "DEB;TGZ")
+
+# Debian Specifics
+set(CPACK_DEBIAN_PACKAGE_NAME "codeplace-editor")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Michael <michael@codeplace.com>")
+set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+
+# Explicitly call for dependencies to ensure they are listed in the package
+# This combines automatic library detection with explicit package requirements
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libstdc++6, libqt6widgets6, libqt6gui6, libqt6core6, libqt6network6, libqt6concurrent6")
+
+set(CPACK_STRIP_FILES TRUE)
+
+include(CPack)

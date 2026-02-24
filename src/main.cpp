@@ -4,15 +4,10 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QtGlobal>
-
-#ifdef Q_OS_LINUX
 #include <unistd.h>
 #include <fcntl.h>
-#endif
-
 #include "main/main_window.h"
 #include "core/session_manager.h"
-
 #include <QSettings>
 #include <cstdlib>
 
@@ -28,7 +23,6 @@ int main(int argc, char *argv[]) {
     
     QCoreApplication::setAttribute(Qt::AA_DontShowIconsInMenus, true);
     
-#ifdef Q_OS_LINUX
     bool shouldDetach = true;
     for (int i = 1; i < argc; ++i) {
         QString arg = argv[i];
@@ -53,7 +47,6 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-#endif
 
     QApplication app(argc, argv);
     app.setApplicationName("CodePlaceEditor");

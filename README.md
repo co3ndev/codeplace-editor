@@ -24,6 +24,8 @@ A lightweight, fast code editor built with C++ and Qt. Whether you're working on
 | **Git Integration** | Built-in Source Control Management via Git. |
 | **LSP Support** | Language Server Protocol support for intelligent code completion, errors, and warnings. Note: you must provide the path to the LSP server for each language. |
 
+For a more detailed breakdown of what CodePlace can do, see [FEATURES.md](FEATURES.md).
+
 ---
 
 ## Supported Languages

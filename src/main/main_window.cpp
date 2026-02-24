@@ -396,6 +396,13 @@ void MainWindow::createMenus() {
     m_actionMap["Toggle Problems"] = toggleProblemsAction;
     connect(m_problemsDock, &QDockWidget::visibilityChanged, toggleProblemsAction, &QAction::setChecked);
 
+    appearanceSubMenu->addSeparator();
+
+    auto *toggleStatusBarAction = appearanceSubMenu->addAction("&Status Bar", [this](bool checked) { statusBar()->setVisible(checked); });
+    toggleStatusBarAction->setCheckable(true);
+    toggleStatusBarAction->setChecked(statusBar()->isVisible());
+    m_actionMap["Toggle Status Bar"] = toggleStatusBarAction;
+
     viewMenu->addSeparator();
 
     auto *toggleLeftSidebarAction = viewMenu->addAction("Toggle Left Sidebar", [this](bool checked) {
@@ -471,6 +478,16 @@ void MainWindow::createMenus() {
     };
     connect(m_terminalDock, &QDockWidget::visibilityChanged, this, updateBottomPanelState);
     connect(m_problemsDock, &QDockWidget::visibilityChanged, this, updateBottomPanelState);
+
+    viewMenu->addSeparator();
+
+    auto *toggleFullScreenAction = viewMenu->addAction("&Full Screen", [this](bool checked) {
+        if (checked) showFullScreen();
+        else showNormal();
+    });
+    toggleFullScreenAction->setCheckable(true);
+    toggleFullScreenAction->setChecked(isFullScreen());
+    m_actionMap["Toggle Full Screen"] = toggleFullScreenAction;
     
     QMenu *helpMenu = menuBar()->addMenu("&Help");
     helpMenu->addAction("&About", [this]() {

@@ -71,7 +71,7 @@ void TerminalWidget::sendInput(const QString &input) {
 void TerminalWidget::processData(const QByteArray &data) {
     m_ansiBuffer.append(data);
     
-    QTextCursor cursor = textCursor();
+    QTextCursor cursor(document());
     cursor.movePosition(QTextCursor::End);
     
     QTextCharFormat defaultFormat;
@@ -85,8 +85,6 @@ void TerminalWidget::processData(const QByteArray &data) {
         char c = m_ansiBuffer[i];
         
         if (c == '\x1B') { 
-            
-            
             int end = -1;
             if (i + 1 < m_ansiBuffer.size()) {
                 char next = m_ansiBuffer[i + 1];
@@ -115,17 +113,13 @@ void TerminalWidget::processData(const QByteArray &data) {
             }
             
             if (end != -1) {
-                
                 if (i > lastProcessed) {
                     QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                    text.remove('\r');
                     cursor.insertText(text, currentFormat);
                 }
                 
-                
                 QByteArray seq = m_ansiBuffer.mid(i, end - i + 1);
                 if (seq.startsWith("\x1B[") && seq.endsWith("m")) {
-                    
                     QString params = QString::fromLatin1(seq.mid(2, seq.size() - 3));
                     for (const QString &p : params.split(';')) {
                         int val = p.toInt();
@@ -149,36 +143,47 @@ void TerminalWidget::processData(const QByteArray &data) {
                             currentFormat.setForeground(Core::ThemeManager::instance().getColor(colors[val - 90]));
                         }
                     }
+                } else if (seq == "\x1B[K" || seq == "\x1B[0K") {
+                    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                    cursor.removeSelectedText();
+                } else if (seq == "\x1B[2K") {
+                    cursor.movePosition(QTextCursor::StartOfBlock);
+                    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                    cursor.removeSelectedText();
+                } else if (seq == "\x1B[H" || seq == "\x1B[1;1H") {
+                    // Very basic home handling
+                    cursor.movePosition(QTextCursor::Start);
                 }
                 
                 i = end;
                 lastProcessed = i + 1;
             } else {
-                
                 break;
             }
+        } else if (c == '\r') {
+            if (i > lastProcessed) {
+                QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
+                cursor.insertText(text, currentFormat);
+            }
+            cursor.movePosition(QTextCursor::StartOfBlock);
+            lastProcessed = i + 1;
         } else if (c == '\x08') { 
             if (i > lastProcessed) {
                 QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                text.remove('\r');
                 cursor.insertText(text, currentFormat);
             }
             cursor.deletePreviousChar();
             lastProcessed = i + 1;
         } else if (static_cast<unsigned char>(c) < 32 && c != '\n' && c != '\r' && c != '\t') {
-            
             if (i > lastProcessed) {
                 QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                text.remove('\r');
                 cursor.insertText(text, currentFormat);
             }
             lastProcessed = i + 1;
         }
     }
     
-    
     if (lastProcessed < m_ansiBuffer.size()) {
-        
         bool inPartialEsc = false;
         for (int k = m_ansiBuffer.size() - 1; k >= lastProcessed; --k) {
             if (m_ansiBuffer[k] == '\x1B') {
@@ -189,11 +194,9 @@ void TerminalWidget::processData(const QByteArray &data) {
         
         if (!inPartialEsc) {
             QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed));
-            text.remove('\r');
             cursor.insertText(text, currentFormat);
             m_ansiBuffer.clear();
         } else {
-            
             m_ansiBuffer = m_ansiBuffer.mid(lastProcessed);
         }
     } else {

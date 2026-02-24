@@ -52,6 +52,7 @@ inline const QMap<QString, QString>& defaultShortcuts() {
         {"Delete",           "Delete"},
         {"Copy Path",        "Ctrl+Shift+C"},
         {"Reveal in Explorer", "Ctrl+Alt+R"},
+        {"Toggle Full Screen", "F11"},
     };
     return shortcuts;
 }

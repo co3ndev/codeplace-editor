@@ -8,95 +8,130 @@
 #include <QRegularExpression>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QDir>
 
 #include <signal.h>
 #include <unistd.h>
+#include <QMimeData>
+#include "pty_process.h"
 
 namespace Terminal {
 
 TerminalWidget::TerminalWidget(QWidget *parent, const QString &workingDirectory)
     : QPlainTextEdit(parent), m_workingDirectory(workingDirectory) {
     
-    m_shell = detectShell();
+    if (m_workingDirectory.isEmpty()) {
+        m_workingDirectory = QDir::cleanPath(Core::ProjectManager::instance().projectRoot());
+    } else {
+        m_workingDirectory = QDir::cleanPath(m_workingDirectory);
+    }
     
+    m_shell = detectShell();
     
     m_restartButton = new QPushButton("New Terminal Session?", this);
     m_restartButton->hide();
     connect(m_restartButton, &QPushButton::clicked, this, &TerminalWidget::restartShell);
 
-    
-    setReadOnly(false);
+    setReadOnly(false); // Set to false to allow blinking cursor; input is manually intercepted
+    setUndoRedoEnabled(false);
+    setCursorWidth(2); 
     setLineWrapMode(QPlainTextEdit::NoWrap);
     
     updateTheme();
     connect(&Core::ThemeManager::instance(), &Core::ThemeManager::themeChanged, this, &TerminalWidget::updateTheme);
     
-    m_process = new QProcess(this);
-    if (!workingDirectory.isEmpty()) {
-        m_process->setWorkingDirectory(workingDirectory);
-    }
+    m_pty = PtyProcess::create(this);
     
-    connect(m_process, &QProcess::readyReadStandardOutput, this, &TerminalWidget::onReadyReadStandardOutput);
-    connect(m_process, &QProcess::readyReadStandardError, this, &TerminalWidget::onReadyReadStandardError);
-    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &TerminalWidget::onProcessFinished);
+    connect(m_pty, &PtyProcess::readyRead, this, &TerminalWidget::processData);
+    connect(m_pty, &PtyProcess::finished, this, &TerminalWidget::onProcessFinished);
+    connect(m_pty, &PtyProcess::errorOccurred, this, [this](const QString &err) {
+        appendPlainText("Error: " + err);
+    });
     
     connect(&Core::ProjectManager::instance(), &Core::ProjectManager::projectRootChanged,
             this, &TerminalWidget::setWorkingDirectory);
 
     QStringList args;
-    if (m_shell.contains("bash") || m_shell.contains("zsh")) {
-        args << "-i";
+    // Use login shell to ensure environment is correctly initialized (common issue on WSL)
+    if (m_shell.contains("sh") || m_shell.contains("zsh")) {
+        args << "-l";
     }
-
-    m_process->start(m_shell, args);
-    if (!m_process->waitForStarted()) {
+    
+    if (!m_pty->start(m_shell, args, m_workingDirectory)) {
         appendPlainText("Error: Could not start shell: " + m_shell);
     }
 }
 
 TerminalWidget::~TerminalWidget() {
-    if (m_process->state() != QProcess::NotRunning) {
-        ::kill(m_process->processId(), SIGHUP);
-        m_process->terminate();
-        if (!m_process->waitForFinished(1000)) {
-            m_process->kill();
-        }
+    if (m_pty) {
+        m_pty->stop();
     }
 }
 
 void TerminalWidget::setWorkingDirectory(const QString &dir) {
-    m_workingDirectory = dir;
-}
+    QString cleanDir = QDir::cleanPath(dir);
+    if (m_workingDirectory == cleanDir) return;
+    m_workingDirectory = cleanDir;
 
-void TerminalWidget::sendInput(const QString &input) {
-    if (m_process->state() == QProcess::Running) {
-        m_process->write(input.toUtf8());
+    if (m_pty && m_pty->isRunning()) {
+        // Use a leading space to prevent the command from being recorded in shell history
+#ifdef Q_OS_WIN
+        sendInput(QString(" cd /d \"%1\"\r\n").arg(m_workingDirectory));
+#else
+        sendInput(QString(" cd \"%1\"\n").arg(m_workingDirectory));
+#endif
     }
 }
 
-void TerminalWidget::onReadyReadStandardOutput() {
-    processData(m_process->readAllStandardOutput());
+void TerminalWidget::sendInput(const QString &input) {
+    if (m_pty && m_pty->isRunning()) {
+        m_pty->write(input.toUtf8());
+    }
 }
 
-void TerminalWidget::onReadyReadStandardError() {
-    processData(m_process->readAllStandardError());
-}
+// Redundant readyRead slots removed, processData is now connected directly to PtyProcess::readyRead
 
 void TerminalWidget::processData(const QByteArray &data) {
     m_ansiBuffer.append(data);
     
-    QTextCursor cursor = textCursor();
-    cursor.movePosition(QTextCursor::End);
+    QTextCursor cursor(document());
     
-    QTextCharFormat defaultFormat;
-    defaultFormat.setForeground(Core::ThemeManager::instance().getColor(Core::ThemeManager::EditorForeground));
+    static const QTextCharFormat defaultFormat = []() {
+        QTextCharFormat fmt;
+        return fmt;
+    }();
     
-    QTextCharFormat currentFormat = cursor.charFormat();
-    if (currentFormat.isEmpty()) currentFormat = defaultFormat;
+    QTextCharFormat currentFormat = textCursor().charFormat();
+    if (currentFormat.isEmpty()) {
+        currentFormat.setForeground(Core::ThemeManager::instance().getColor(Core::ThemeManager::EditorForeground));
+    }
+    
+    auto flushText = [&](int start, int end) {
+        if (end <= start) return;
+        QString text = QString::fromUtf8(m_ansiBuffer.mid(start, end - start));
+        
+        for (QChar c : text) {
+            if (c == '\n') {
+                cursor.movePosition(QTextCursor::End);
+                cursor.insertText("\n", currentFormat);
+                cursor.movePosition(QTextCursor::End);
+            } else if (c == '\t') {
+                cursor.insertText("    ", currentFormat);
+            } else {
+                // Overwrite logic: if not at end of line, replace next char
+                if (!cursor.atBlockEnd()) {
+                    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+                }
+                cursor.insertText(c, currentFormat);
+            }
+        }
+    };
 
     int lastProcessed = 0;
+    cursor = textCursor();
+
     for (int i = 0; i < m_ansiBuffer.size(); ++i) {
-        char c = m_ansiBuffer[i];
+        unsigned char c = static_cast<unsigned char>(m_ansiBuffer[i]);
         
         if (c == '\x1B') { 
             
@@ -129,40 +164,53 @@ void TerminalWidget::processData(const QByteArray &data) {
             }
             
             if (end != -1) {
-                
-                if (i > lastProcessed) {
-                    QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                    text.remove('\r');
-                    cursor.insertText(text, currentFormat);
-                }
-                
+                flushText(lastProcessed, i);
                 
                 QByteArray seq = m_ansiBuffer.mid(i, end - i + 1);
                 if (seq.startsWith("\x1B[") && seq.endsWith("m")) {
                     
                     QString params = QString::fromLatin1(seq.mid(2, seq.size() - 3));
-                    for (const QString &p : params.split(';')) {
-                        int val = p.toInt();
-                        if (val == 0) currentFormat = defaultFormat;
-                        else if (val == 1) currentFormat.setFontWeight(QFont::Bold);
-                        else if (val >= 30 && val <= 37) {
-                            static const Core::ThemeManager::EditorColor colors[] = { 
-                                Core::ThemeManager::TerminalBlack, Core::ThemeManager::TerminalRed, 
-                                Core::ThemeManager::TerminalGreen, Core::ThemeManager::TerminalYellow, 
-                                Core::ThemeManager::TerminalBlue, Core::ThemeManager::TerminalMagenta, 
-                                Core::ThemeManager::TerminalCyan, Core::ThemeManager::TerminalWhite 
-                            };
-                            currentFormat.setForeground(Core::ThemeManager::instance().getColor(colors[val - 30]));
-                        } else if (val >= 90 && val <= 97) {
-                            static const Core::ThemeManager::EditorColor colors[] = { 
-                                Core::ThemeManager::TerminalBrightBlack, Core::ThemeManager::TerminalBrightRed, 
-                                Core::ThemeManager::TerminalBrightGreen, Core::ThemeManager::TerminalBrightYellow, 
-                                Core::ThemeManager::TerminalBrightBlue, Core::ThemeManager::TerminalBrightMagenta, 
-                                Core::ThemeManager::TerminalBrightCyan, Core::ThemeManager::TerminalBrightWhite 
-                            };
-                            currentFormat.setForeground(Core::ThemeManager::instance().getColor(colors[val - 90]));
+                    if (params.isEmpty() || params == "0") {
+                        currentFormat = defaultFormat;
+                        currentFormat.setForeground(Core::ThemeManager::instance().getColor(Core::ThemeManager::EditorForeground));
+                    } else {
+                        for (const QString &p : params.split(';')) {
+                            int val = p.toInt();
+                            if (val == 0) {
+                                currentFormat = defaultFormat;
+                                currentFormat.setForeground(Core::ThemeManager::instance().getColor(Core::ThemeManager::EditorForeground));
+                            } else if (val == 1) currentFormat.setFontWeight(QFont::Bold);
+                            else if (val >= 30 && val <= 37) {
+                                static const Core::ThemeManager::EditorColor colors[] = { 
+                                    Core::ThemeManager::TerminalBlack, Core::ThemeManager::TerminalRed, 
+                                    Core::ThemeManager::TerminalGreen, Core::ThemeManager::TerminalYellow, 
+                                    Core::ThemeManager::TerminalBlue, Core::ThemeManager::TerminalMagenta, 
+                                    Core::ThemeManager::TerminalCyan, Core::ThemeManager::TerminalWhite 
+                                };
+                                currentFormat.setForeground(Core::ThemeManager::instance().getColor(colors[val - 30]));
+                            } else if (val >= 90 && val <= 97) {
+                                static const Core::ThemeManager::EditorColor colors[] = { 
+                                    Core::ThemeManager::TerminalBrightBlack, Core::ThemeManager::TerminalBrightRed, 
+                                    Core::ThemeManager::TerminalBrightGreen, Core::ThemeManager::TerminalBrightYellow, 
+                                    Core::ThemeManager::TerminalBrightBlue, Core::ThemeManager::TerminalBrightMagenta, 
+                                    Core::ThemeManager::TerminalBrightCyan, Core::ThemeManager::TerminalBrightWhite 
+                                };
+                                currentFormat.setForeground(Core::ThemeManager::instance().getColor(colors[val - 90]));
+                            }
                         }
                     }
+                } else if (seq == "\x1B[K" || seq == "\x1B[0K") {
+                    QTextCursor temp = cursor;
+                    temp.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                    temp.removeSelectedText();
+                } else if (seq == "\x1B[2K") {
+                    QTextCursor temp = cursor;
+                    temp.movePosition(QTextCursor::StartOfBlock);
+                    temp.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                    temp.removeSelectedText();
+                } else if (seq == "\x1B[H" || seq == "\x1B[1;1H") {
+                    // Very basic home handling
+                    cursor.movePosition(QTextCursor::Start);
                 }
                 
                 i = end;
@@ -171,21 +219,16 @@ void TerminalWidget::processData(const QByteArray &data) {
                 
                 break;
             }
+        } else if (c == '\r') {
+            flushText(lastProcessed, i);
+            cursor.movePosition(QTextCursor::StartOfBlock);
+            lastProcessed = i + 1;
         } else if (c == '\x08') { 
-            if (i > lastProcessed) {
-                QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                text.remove('\r');
-                cursor.insertText(text, currentFormat);
-            }
+            flushText(lastProcessed, i);
             cursor.deletePreviousChar();
             lastProcessed = i + 1;
-        } else if (static_cast<unsigned char>(c) < 32 && c != '\n' && c != '\r' && c != '\t') {
-            
-            if (i > lastProcessed) {
-                QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                text.remove('\r');
-                cursor.insertText(text, currentFormat);
-            }
+        } else if (c < 32 && c != '\n' && c != '\t') {
+            flushText(lastProcessed, i);
             lastProcessed = i + 1;
         }
     }
@@ -202,9 +245,7 @@ void TerminalWidget::processData(const QByteArray &data) {
         }
         
         if (!inPartialEsc) {
-            QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed));
-            text.remove('\r');
-            cursor.insertText(text, currentFormat);
+            flushText(lastProcessed, m_ansiBuffer.size());
             m_ansiBuffer.clear();
         } else {
             
@@ -215,6 +256,8 @@ void TerminalWidget::processData(const QByteArray &data) {
     }
     
     verticalScrollBar()->setValue(verticalScrollBar()->maximum());
+    setTextCursor(cursor);
+    ensureCursorVisible();
 }
 
 void TerminalWidget::appendAnsiText(const QString &text) {
@@ -262,12 +305,16 @@ void TerminalWidget::updateTheme() {
 }
 
 QString TerminalWidget::detectShell() {
-    char* shell = getenv("SHELL");
-    if (shell) return QString::fromLocal8Bit(shell);
+#ifdef Q_OS_WIN
+    return "cmd.exe";
+#elif defined(Q_OS_MAC)
+    return "/bin/zsh";
+#else
     return "/bin/bash";
+#endif
 }
 
-void TerminalWidget::onProcessFinished(int exitCode, QProcess::ExitStatus ) {
+void TerminalWidget::onProcessFinished(int exitCode) {
     appendPlainText(QString("\nProcess finished with exit code %1").arg(exitCode));
     
     
@@ -283,20 +330,16 @@ void TerminalWidget::restartShell() {
     clear();
     m_ansiBuffer.clear();
     
-    if (m_process->state() != QProcess::NotRunning) {
-        m_process->kill();
+    if (m_pty) {
+        m_pty->stop();
     }
     
     QStringList args;
-    if (m_shell.contains("bash") || m_shell.contains("zsh")) {
-        args << "-i";
-    }
-
-    if (!m_workingDirectory.isEmpty()) {
-        m_process->setWorkingDirectory(m_workingDirectory);
+    if (m_shell.contains("sh") || m_shell.contains("zsh")) {
+        args << "-l";
     }
     
-    m_process->start(m_shell, args);
+    m_pty->start(m_shell, args, m_workingDirectory);
 }
 
 void TerminalWidget::resizeEvent(QResizeEvent *event) {
@@ -305,46 +348,62 @@ void TerminalWidget::resizeEvent(QResizeEvent *event) {
         m_restartButton->move((width() - m_restartButton->width()) / 2, 
                              (height() - m_restartButton->height()) / 2);
     }
+
+    // Notify PTY of size change
+    if (m_pty && m_pty->isRunning()) {
+        QFontMetrics fm(font());
+        int charWidth = fm.horizontalAdvance('W');
+        int charHeight = fm.height();
+        
+        if (charWidth > 0 && charHeight > 0) {
+            int cols = viewport()->width() / charWidth;
+            int rows = viewport()->height() / charHeight;
+            if (cols != m_lastCols || rows != m_lastRows) {
+                m_lastCols = cols;
+                m_lastRows = rows;
+                m_pty->resize(cols, rows);
+            }
+        }
+    }
 }
 
 bool TerminalWidget::event(QEvent *event) {
     if (event->type() == QEvent::ShortcutOverride) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
-        if (keyEvent->modifiers() & Qt::ControlModifier) {
-            int key = keyEvent->key();
-            
-            
-            if (key >= Qt::Key_A && key <= Qt::Key_Z) {
-                event->accept();
-                return true;
-            }
-        }
+        event->accept();
+        return true;
     }
     return QPlainTextEdit::event(event);
+}
+
+void TerminalWidget::focusInEvent(QFocusEvent *event) {
+    QPlainTextEdit::focusInEvent(event);
+    moveCursorToEnd();
+}
+
+void TerminalWidget::mousePressEvent(QMouseEvent *event) {
+    QPlainTextEdit::mousePressEvent(event);
+    moveCursorToEnd();
+}
+
+void TerminalWidget::moveCursorToEnd() {
+    QTextCursor cursor = textCursor();
+    cursor.movePosition(QTextCursor::End);
+    setTextCursor(cursor);
+}
+
+void TerminalWidget::insertFromMimeData(const QMimeData *source) {
+    if (source->hasText()) {
+        sendInput(source->text());
+    }
 }
 
 void TerminalWidget::keyPressEvent(QKeyEvent *event) {
     if (event->modifiers() & Qt::ControlModifier) {
         int key = event->key();
 
-        
         if (key == Qt::Key_C && textCursor().hasSelection()) {
             copy();
             return;
-        }
-
-        
-        if (key == Qt::Key_C && !textCursor().hasSelection()) {
-            if (m_process->state() == QProcess::Running) {
-                
-                QTextCursor cursor = textCursor();
-                cursor.movePosition(QTextCursor::End);
-                cursor.insertText("^C\n");
-                verticalScrollBar()->setValue(verticalScrollBar()->maximum());
-                
-                ::kill(m_process->processId(), SIGINT);
-                return;
-            }
         }
 
         if (key == Qt::Key_V) {
@@ -354,24 +413,32 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event) {
 
         if (key >= Qt::Key_A && key <= Qt::Key_Z) {
             char ctrlChar = static_cast<char>(key - Qt::Key_A + 1);
-            sendInput(QString(ctrlChar));
+            sendInput(QByteArray(1, ctrlChar));
             return;
         }
     }
 
     if (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) {
-        sendInput("\n");
+        sendInput("\r");
     } else if (event->key() == Qt::Key_Backspace) {
-        sendInput("\b");
+        sendInput("\x7f"); // Sending DEL which is standard for most modern terminals
     } else if (event->key() == Qt::Key_Tab) {
         sendInput("\t");
+    } else if (event->key() == Qt::Key_Left) {
+        sendInput("\x1B[D");
+    } else if (event->key() == Qt::Key_Right) {
+        sendInput("\x1B[C");
+    } else if (event->key() == Qt::Key_Up) {
+        sendInput("\x1B[A");
+    } else if (event->key() == Qt::Key_Down) {
+        sendInput("\x1B[B");
     } else {
         QString text = event->text();
         if (!text.isEmpty()) {
             sendInput(text);
         }
     }
-    
+    event->accept();
 }
 
 } 

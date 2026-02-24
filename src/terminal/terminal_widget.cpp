@@ -11,6 +11,8 @@
 
 #include <signal.h>
 #include <unistd.h>
+#include <QMimeData>
+#include "pty_process.h"
 
 namespace Terminal {
 
@@ -19,48 +21,38 @@ TerminalWidget::TerminalWidget(QWidget *parent, const QString &workingDirectory)
     
     m_shell = detectShell();
     
-    
     m_restartButton = new QPushButton("New Terminal Session?", this);
     m_restartButton->hide();
     connect(m_restartButton, &QPushButton::clicked, this, &TerminalWidget::restartShell);
 
-    
-    setReadOnly(false);
+    setReadOnly(true); // Terminal is read-only to prevent ad-hoc editing
     setLineWrapMode(QPlainTextEdit::NoWrap);
     
     updateTheme();
     connect(&Core::ThemeManager::instance(), &Core::ThemeManager::themeChanged, this, &TerminalWidget::updateTheme);
     
-    m_process = new QProcess(this);
-    if (!workingDirectory.isEmpty()) {
-        m_process->setWorkingDirectory(workingDirectory);
-    }
+    m_pty = PtyProcess::create(this);
     
-    connect(m_process, &QProcess::readyReadStandardOutput, this, &TerminalWidget::onReadyReadStandardOutput);
-    connect(m_process, &QProcess::readyReadStandardError, this, &TerminalWidget::onReadyReadStandardError);
-    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &TerminalWidget::onProcessFinished);
+    connect(m_pty, &PtyProcess::readyRead, this, &TerminalWidget::processData);
+    connect(m_pty, &PtyProcess::finished, this, &TerminalWidget::onProcessFinished);
+    connect(m_pty, &PtyProcess::errorOccurred, this, [this](const QString &err) {
+        appendPlainText("Error: " + err);
+    });
     
     connect(&Core::ProjectManager::instance(), &Core::ProjectManager::projectRootChanged,
             this, &TerminalWidget::setWorkingDirectory);
 
     QStringList args;
-    if (m_shell.contains("bash") || m_shell.contains("zsh")) {
-        args << "-i";
-    }
-
-    m_process->start(m_shell, args);
-    if (!m_process->waitForStarted()) {
+    // Shell will be interactive naturally due to PTY, -i is often redundant and can cause duplicate prompts
+    
+    if (!m_pty->start(m_shell, args, m_workingDirectory)) {
         appendPlainText("Error: Could not start shell: " + m_shell);
     }
 }
 
 TerminalWidget::~TerminalWidget() {
-    if (m_process->state() != QProcess::NotRunning) {
-        ::kill(m_process->processId(), SIGHUP);
-        m_process->terminate();
-        if (!m_process->waitForFinished(1000)) {
-            m_process->kill();
-        }
+    if (m_pty) {
+        m_pty->stop();
     }
 }
 
@@ -69,18 +61,12 @@ void TerminalWidget::setWorkingDirectory(const QString &dir) {
 }
 
 void TerminalWidget::sendInput(const QString &input) {
-    if (m_process->state() == QProcess::Running) {
-        m_process->write(input.toUtf8());
+    if (m_pty && m_pty->isRunning()) {
+        m_pty->write(input.toUtf8());
     }
 }
 
-void TerminalWidget::onReadyReadStandardOutput() {
-    processData(m_process->readAllStandardOutput());
-}
-
-void TerminalWidget::onReadyReadStandardError() {
-    processData(m_process->readAllStandardError());
-}
+// Redundant readyRead slots removed, processData is now connected directly to PtyProcess::readyRead
 
 void TerminalWidget::processData(const QByteArray &data) {
     m_ansiBuffer.append(data);
@@ -267,7 +253,7 @@ QString TerminalWidget::detectShell() {
     return "/bin/bash";
 }
 
-void TerminalWidget::onProcessFinished(int exitCode, QProcess::ExitStatus ) {
+void TerminalWidget::onProcessFinished(int exitCode) {
     appendPlainText(QString("\nProcess finished with exit code %1").arg(exitCode));
     
     
@@ -283,20 +269,13 @@ void TerminalWidget::restartShell() {
     clear();
     m_ansiBuffer.clear();
     
-    if (m_process->state() != QProcess::NotRunning) {
-        m_process->kill();
+    if (m_pty) {
+        m_pty->stop();
     }
     
     QStringList args;
-    if (m_shell.contains("bash") || m_shell.contains("zsh")) {
-        args << "-i";
-    }
-
-    if (!m_workingDirectory.isEmpty()) {
-        m_process->setWorkingDirectory(m_workingDirectory);
-    }
     
-    m_process->start(m_shell, args);
+    m_pty->start(m_shell, args, m_workingDirectory);
 }
 
 void TerminalWidget::resizeEvent(QResizeEvent *event) {
@@ -305,6 +284,23 @@ void TerminalWidget::resizeEvent(QResizeEvent *event) {
         m_restartButton->move((width() - m_restartButton->width()) / 2, 
                              (height() - m_restartButton->height()) / 2);
     }
+
+    // Notify PTY of size change
+    if (m_pty && m_pty->isRunning()) {
+        QFontMetrics fm(font());
+        int charWidth = fm.horizontalAdvance('W');
+        int charHeight = fm.height();
+        
+        if (charWidth > 0 && charHeight > 0) {
+            int cols = viewport()->width() / charWidth;
+            int rows = viewport()->height() / charHeight;
+            if (cols != m_lastCols || rows != m_lastRows) {
+                m_lastCols = cols;
+                m_lastRows = rows;
+                m_pty->resize(cols, rows);
+            }
+        }
+    }
 }
 
 bool TerminalWidget::event(QEvent *event) {
@@ -312,8 +308,7 @@ bool TerminalWidget::event(QEvent *event) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->modifiers() & Qt::ControlModifier) {
             int key = keyEvent->key();
-            
-            
+            // Allow Ctrl+C, Ctrl+V, etc. to be handled here instead of as shortcuts
             if (key >= Qt::Key_A && key <= Qt::Key_Z) {
                 event->accept();
                 return true;
@@ -323,28 +318,27 @@ bool TerminalWidget::event(QEvent *event) {
     return QPlainTextEdit::event(event);
 }
 
+void TerminalWidget::focusInEvent(QFocusEvent *event) {
+    QPlainTextEdit::focusInEvent(event);
+    // Ensure cursor is always at the end when gaining focus
+    QTextCursor cursor = textCursor();
+    cursor.movePosition(QTextCursor::End);
+    setTextCursor(cursor);
+}
+
+void TerminalWidget::insertFromMimeData(const QMimeData *source) {
+    if (source->hasText()) {
+        sendInput(source->text());
+    }
+}
+
 void TerminalWidget::keyPressEvent(QKeyEvent *event) {
     if (event->modifiers() & Qt::ControlModifier) {
         int key = event->key();
 
-        
         if (key == Qt::Key_C && textCursor().hasSelection()) {
             copy();
             return;
-        }
-
-        
-        if (key == Qt::Key_C && !textCursor().hasSelection()) {
-            if (m_process->state() == QProcess::Running) {
-                
-                QTextCursor cursor = textCursor();
-                cursor.movePosition(QTextCursor::End);
-                cursor.insertText("^C\n");
-                verticalScrollBar()->setValue(verticalScrollBar()->maximum());
-                
-                ::kill(m_process->processId(), SIGINT);
-                return;
-            }
         }
 
         if (key == Qt::Key_V) {
@@ -354,7 +348,7 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event) {
 
         if (key >= Qt::Key_A && key <= Qt::Key_Z) {
             char ctrlChar = static_cast<char>(key - Qt::Key_A + 1);
-            sendInput(QString(ctrlChar));
+            sendInput(QByteArray(1, ctrlChar));
             return;
         }
     }
@@ -362,16 +356,23 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) {
         sendInput("\n");
     } else if (event->key() == Qt::Key_Backspace) {
-        sendInput("\b");
+        sendInput("\x7f"); // Sending DEL which is standard for most modern terminals
     } else if (event->key() == Qt::Key_Tab) {
         sendInput("\t");
+    } else if (event->key() == Qt::Key_Left) {
+        sendInput("\x1B[D");
+    } else if (event->key() == Qt::Key_Right) {
+        sendInput("\x1B[C");
+    } else if (event->key() == Qt::Key_Up) {
+        sendInput("\x1B[A");
+    } else if (event->key() == Qt::Key_Down) {
+        sendInput("\x1B[B");
     } else {
         QString text = event->text();
         if (!text.isEmpty()) {
             sendInput(text);
         }
     }
-    
 }
 
 } 

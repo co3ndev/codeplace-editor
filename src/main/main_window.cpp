@@ -71,7 +71,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         updateStatusBar();
     });
     
-    emit Core::ThemeManager::instance().themeChanged();
 }
 
 void MainWindow::setupLayout() {

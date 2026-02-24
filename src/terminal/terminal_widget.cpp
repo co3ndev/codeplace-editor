@@ -370,15 +370,8 @@ void TerminalWidget::resizeEvent(QResizeEvent *event) {
 
 bool TerminalWidget::event(QEvent *event) {
     if (event->type() == QEvent::ShortcutOverride) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
-        if (keyEvent->modifiers() & Qt::ControlModifier) {
-            int key = keyEvent->key();
-            // Allow Ctrl+C, Ctrl+V, etc. to be handled here instead of as shortcuts
-            if (key >= Qt::Key_A && key <= Qt::Key_Z) {
-                event->accept();
-                return true;
-            }
-        }
+        event->accept();
+        return true;
     }
     return QPlainTextEdit::event(event);
 }
@@ -419,7 +412,7 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event) {
     }
 
     if (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) {
-        sendInput("\n");
+        sendInput("\r");
     } else if (event->key() == Qt::Key_Backspace) {
         sendInput("\x7f"); // Sending DEL which is standard for most modern terminals
     } else if (event->key() == Qt::Key_Tab) {
@@ -438,7 +431,7 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event) {
             sendInput(text);
         }
     }
-    event->accept(); // Prevent base class from inserting text
+    event->accept();
 }
 
 } 

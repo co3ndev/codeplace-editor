@@ -8,6 +8,7 @@
 #include <QRegularExpression>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QDir>
 
 #include <signal.h>
 #include <unistd.h>
@@ -20,7 +21,9 @@ TerminalWidget::TerminalWidget(QWidget *parent, const QString &workingDirectory)
     : QPlainTextEdit(parent), m_workingDirectory(workingDirectory) {
     
     if (m_workingDirectory.isEmpty()) {
-        m_workingDirectory = Core::ProjectManager::instance().projectRoot();
+        m_workingDirectory = QDir::cleanPath(Core::ProjectManager::instance().projectRoot());
+    } else {
+        m_workingDirectory = QDir::cleanPath(m_workingDirectory);
     }
     
     m_shell = detectShell();
@@ -66,14 +69,16 @@ TerminalWidget::~TerminalWidget() {
 }
 
 void TerminalWidget::setWorkingDirectory(const QString &dir) {
-    if (m_workingDirectory == dir) return;
-    m_workingDirectory = dir;
+    QString cleanDir = QDir::cleanPath(dir);
+    if (m_workingDirectory == cleanDir) return;
+    m_workingDirectory = cleanDir;
 
     if (m_pty && m_pty->isRunning()) {
+        // Use a leading space to prevent the command from being recorded in shell history
 #ifdef Q_OS_WIN
-        sendInput(QString("cd /d \"%1\"\r\n").arg(m_workingDirectory));
+        sendInput(QString(" cd /d \"%1\"\r\n").arg(m_workingDirectory));
 #else
-        sendInput(QString("cd \"%1\"\n").arg(m_workingDirectory));
+        sendInput(QString(" cd \"%1\"\n").arg(m_workingDirectory));
 #endif
     }
 }
@@ -378,7 +383,15 @@ bool TerminalWidget::event(QEvent *event) {
 
 void TerminalWidget::focusInEvent(QFocusEvent *event) {
     QPlainTextEdit::focusInEvent(event);
-    // Ensure cursor is always at the end when gaining focus
+    moveCursorToEnd();
+}
+
+void TerminalWidget::mousePressEvent(QMouseEvent *event) {
+    QPlainTextEdit::mousePressEvent(event);
+    moveCursorToEnd();
+}
+
+void TerminalWidget::moveCursorToEnd() {
     QTextCursor cursor = textCursor();
     cursor.movePosition(QTextCursor::End);
     setTextCursor(cursor);

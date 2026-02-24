@@ -39,11 +39,13 @@ protected:
     bool event(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
     void insertFromMimeData(const QMimeData *source) override;
 
 private:
     void processData(const QByteArray &data);
     QString detectShell();
+    void moveCursorToEnd();
 
     PtyProcess *m_pty;
     QString m_shell;

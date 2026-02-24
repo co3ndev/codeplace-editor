@@ -8,6 +8,7 @@
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <errno.h>
+#include <stdlib.h>
 #endif
 
 #ifdef Q_OS_WIN
@@ -35,6 +36,9 @@ public:
         }
 
         if (pid == 0) { // Child
+            setenv("TERM", "xterm-256color", 1);
+            setenv("COLORTERM", "truecolor", 1);
+
             if (!workingDir.isEmpty()) {
                 if (chdir(workingDir.toLocal8Bit().constData()) != 0) {
                     perror("chdir failed");

@@ -47,7 +47,10 @@ TerminalWidget::TerminalWidget(QWidget *parent, const QString &workingDirectory)
             this, &TerminalWidget::setWorkingDirectory);
 
     QStringList args;
-    // Shell will be interactive naturally due to PTY, -i is often redundant and can cause duplicate prompts
+    // Use login shell to ensure environment is correctly initialized (common issue on WSL)
+    if (m_shell.contains("sh") || m_shell.contains("zsh")) {
+        args << "-l";
+    }
     
     if (!m_pty->start(m_shell, args, m_workingDirectory)) {
         appendPlainText("Error: Could not start shell: " + m_shell);
@@ -331,6 +334,9 @@ void TerminalWidget::restartShell() {
     }
     
     QStringList args;
+    if (m_shell.contains("sh") || m_shell.contains("zsh")) {
+        args << "-l";
+    }
     
     m_pty->start(m_shell, args, m_workingDirectory);
 }

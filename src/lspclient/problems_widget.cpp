@@ -19,8 +19,9 @@ ProblemsWidget::ProblemsWidget(QWidget *parent) : QTreeWidget(parent) {
     setVerticalScrollMode(QAbstractItemView::ScrollPerItem);
     setSortingEnabled(true);
     
-    header()->setStretchLastSection(true);
+    header()->setStretchLastSection(false);
     header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    header()->setSectionResizeMode(1, QHeaderView::Stretch);
     header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     header()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
 

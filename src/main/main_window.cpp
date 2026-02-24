@@ -48,8 +48,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     }
     if (!state.windowState.isEmpty()) restoreState(state.windowState);
     
-    setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
-    setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
+    setCorner(Qt::BottomLeftCorner, Qt::BottomDockWidgetArea);
+    setCorner(Qt::BottomRightCorner, Qt::BottomDockWidgetArea);
 
     applySettings();
 
@@ -83,8 +83,7 @@ void MainWindow::setupLayout() {
     m_sidebar = new Browser::FileBrowserSidebar(this);
     m_sidebarDock = createDockWidget("Explorer", "sidebarDock", m_sidebar, Qt::LeftDockWidgetArea);
 
-    setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
-    setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
+
 
     setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::West);
     setTabPosition(Qt::RightDockWidgetArea, QTabWidget::East);

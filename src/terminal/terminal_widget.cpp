@@ -72,19 +72,47 @@ void TerminalWidget::processData(const QByteArray &data) {
     m_ansiBuffer.append(data);
     
     QTextCursor cursor(document());
-    cursor.movePosition(QTextCursor::End);
     
-    QTextCharFormat defaultFormat;
-    defaultFormat.setForeground(Core::ThemeManager::instance().getColor(Core::ThemeManager::EditorForeground));
+    static const QTextCharFormat defaultFormat = []() {
+        QTextCharFormat fmt;
+        return fmt;
+    }();
     
-    QTextCharFormat currentFormat = cursor.charFormat();
-    if (currentFormat.isEmpty()) currentFormat = defaultFormat;
+    QTextCharFormat currentFormat = textCursor().charFormat();
+    if (currentFormat.isEmpty()) {
+        currentFormat.setForeground(Core::ThemeManager::instance().getColor(Core::ThemeManager::EditorForeground));
+    }
+    
+    auto flushText = [&](int start, int end) {
+        if (end <= start) return;
+        QString text = QString::fromUtf8(m_ansiBuffer.mid(start, end - start));
+        
+        for (QChar c : text) {
+            if (c == '\n') {
+                cursor.movePosition(QTextCursor::End);
+                cursor.insertText("\n", currentFormat);
+                cursor.movePosition(QTextCursor::End);
+            } else if (c == '\t') {
+                cursor.insertText("    ", currentFormat);
+            } else {
+                // Overwrite logic: if not at end of line, replace next char
+                if (!cursor.atBlockEnd()) {
+                    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+                }
+                cursor.insertText(c, currentFormat);
+            }
+        }
+    };
 
     int lastProcessed = 0;
+    cursor = textCursor();
+
     for (int i = 0; i < m_ansiBuffer.size(); ++i) {
-        char c = m_ansiBuffer[i];
+        unsigned char c = static_cast<unsigned char>(m_ansiBuffer[i]);
         
         if (c == '\x1B') { 
+            
+            
             int end = -1;
             if (i + 1 < m_ansiBuffer.size()) {
                 char next = m_ansiBuffer[i + 1];
@@ -113,43 +141,50 @@ void TerminalWidget::processData(const QByteArray &data) {
             }
             
             if (end != -1) {
-                if (i > lastProcessed) {
-                    QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                    cursor.insertText(text, currentFormat);
-                }
+                flushText(lastProcessed, i);
                 
                 QByteArray seq = m_ansiBuffer.mid(i, end - i + 1);
                 if (seq.startsWith("\x1B[") && seq.endsWith("m")) {
+                    
                     QString params = QString::fromLatin1(seq.mid(2, seq.size() - 3));
-                    for (const QString &p : params.split(';')) {
-                        int val = p.toInt();
-                        if (val == 0) currentFormat = defaultFormat;
-                        else if (val == 1) currentFormat.setFontWeight(QFont::Bold);
-                        else if (val >= 30 && val <= 37) {
-                            static const Core::ThemeManager::EditorColor colors[] = { 
-                                Core::ThemeManager::TerminalBlack, Core::ThemeManager::TerminalRed, 
-                                Core::ThemeManager::TerminalGreen, Core::ThemeManager::TerminalYellow, 
-                                Core::ThemeManager::TerminalBlue, Core::ThemeManager::TerminalMagenta, 
-                                Core::ThemeManager::TerminalCyan, Core::ThemeManager::TerminalWhite 
-                            };
-                            currentFormat.setForeground(Core::ThemeManager::instance().getColor(colors[val - 30]));
-                        } else if (val >= 90 && val <= 97) {
-                            static const Core::ThemeManager::EditorColor colors[] = { 
-                                Core::ThemeManager::TerminalBrightBlack, Core::ThemeManager::TerminalBrightRed, 
-                                Core::ThemeManager::TerminalBrightGreen, Core::ThemeManager::TerminalBrightYellow, 
-                                Core::ThemeManager::TerminalBrightBlue, Core::ThemeManager::TerminalBrightMagenta, 
-                                Core::ThemeManager::TerminalBrightCyan, Core::ThemeManager::TerminalBrightWhite 
-                            };
-                            currentFormat.setForeground(Core::ThemeManager::instance().getColor(colors[val - 90]));
+                    if (params.isEmpty() || params == "0") {
+                        currentFormat = defaultFormat;
+                        currentFormat.setForeground(Core::ThemeManager::instance().getColor(Core::ThemeManager::EditorForeground));
+                    } else {
+                        for (const QString &p : params.split(';')) {
+                            int val = p.toInt();
+                            if (val == 0) {
+                                currentFormat = defaultFormat;
+                                currentFormat.setForeground(Core::ThemeManager::instance().getColor(Core::ThemeManager::EditorForeground));
+                            } else if (val == 1) currentFormat.setFontWeight(QFont::Bold);
+                            else if (val >= 30 && val <= 37) {
+                                static const Core::ThemeManager::EditorColor colors[] = { 
+                                    Core::ThemeManager::TerminalBlack, Core::ThemeManager::TerminalRed, 
+                                    Core::ThemeManager::TerminalGreen, Core::ThemeManager::TerminalYellow, 
+                                    Core::ThemeManager::TerminalBlue, Core::ThemeManager::TerminalMagenta, 
+                                    Core::ThemeManager::TerminalCyan, Core::ThemeManager::TerminalWhite 
+                                };
+                                currentFormat.setForeground(Core::ThemeManager::instance().getColor(colors[val - 30]));
+                            } else if (val >= 90 && val <= 97) {
+                                static const Core::ThemeManager::EditorColor colors[] = { 
+                                    Core::ThemeManager::TerminalBrightBlack, Core::ThemeManager::TerminalBrightRed, 
+                                    Core::ThemeManager::TerminalBrightGreen, Core::ThemeManager::TerminalBrightYellow, 
+                                    Core::ThemeManager::TerminalBrightBlue, Core::ThemeManager::TerminalBrightMagenta, 
+                                    Core::ThemeManager::TerminalBrightCyan, Core::ThemeManager::TerminalBrightWhite 
+                                };
+                                currentFormat.setForeground(Core::ThemeManager::instance().getColor(colors[val - 90]));
+                            }
                         }
                     }
                 } else if (seq == "\x1B[K" || seq == "\x1B[0K") {
-                    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-                    cursor.removeSelectedText();
+                    QTextCursor temp = cursor;
+                    temp.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                    temp.removeSelectedText();
                 } else if (seq == "\x1B[2K") {
-                    cursor.movePosition(QTextCursor::StartOfBlock);
-                    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-                    cursor.removeSelectedText();
+                    QTextCursor temp = cursor;
+                    temp.movePosition(QTextCursor::StartOfBlock);
+                    temp.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                    temp.removeSelectedText();
                 } else if (seq == "\x1B[H" || seq == "\x1B[1;1H") {
                     // Very basic home handling
                     cursor.movePosition(QTextCursor::Start);
@@ -158,32 +193,26 @@ void TerminalWidget::processData(const QByteArray &data) {
                 i = end;
                 lastProcessed = i + 1;
             } else {
+                
                 break;
             }
         } else if (c == '\r') {
-            if (i > lastProcessed) {
-                QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                cursor.insertText(text, currentFormat);
-            }
+            flushText(lastProcessed, i);
             cursor.movePosition(QTextCursor::StartOfBlock);
             lastProcessed = i + 1;
         } else if (c == '\x08') { 
-            if (i > lastProcessed) {
-                QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                cursor.insertText(text, currentFormat);
-            }
+            flushText(lastProcessed, i);
             cursor.deletePreviousChar();
             lastProcessed = i + 1;
-        } else if (static_cast<unsigned char>(c) < 32 && c != '\n' && c != '\r' && c != '\t') {
-            if (i > lastProcessed) {
-                QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed, i - lastProcessed));
-                cursor.insertText(text, currentFormat);
-            }
+        } else if (c < 32 && c != '\n' && c != '\t') {
+            flushText(lastProcessed, i);
             lastProcessed = i + 1;
         }
     }
     
+    
     if (lastProcessed < m_ansiBuffer.size()) {
+        
         bool inPartialEsc = false;
         for (int k = m_ansiBuffer.size() - 1; k >= lastProcessed; --k) {
             if (m_ansiBuffer[k] == '\x1B') {
@@ -193,10 +222,10 @@ void TerminalWidget::processData(const QByteArray &data) {
         }
         
         if (!inPartialEsc) {
-            QString text = QString::fromUtf8(m_ansiBuffer.mid(lastProcessed));
-            cursor.insertText(text, currentFormat);
+            flushText(lastProcessed, m_ansiBuffer.size());
             m_ansiBuffer.clear();
         } else {
+            
             m_ansiBuffer = m_ansiBuffer.mid(lastProcessed);
         }
     } else {
@@ -204,6 +233,8 @@ void TerminalWidget::processData(const QByteArray &data) {
     }
     
     verticalScrollBar()->setValue(verticalScrollBar()->maximum());
+    setTextCursor(cursor);
+    ensureCursorVisible();
 }
 
 void TerminalWidget::appendAnsiText(const QString &text) {

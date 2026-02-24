@@ -29,7 +29,9 @@ TerminalWidget::TerminalWidget(QWidget *parent, const QString &workingDirectory)
     m_restartButton->hide();
     connect(m_restartButton, &QPushButton::clicked, this, &TerminalWidget::restartShell);
 
-    setReadOnly(true); // Terminal is read-only to prevent ad-hoc editing
+    setReadOnly(false); // Set to false to allow blinking cursor; input is manually intercepted
+    setUndoRedoEnabled(false);
+    setCursorWidth(2); 
     setLineWrapMode(QPlainTextEdit::NoWrap);
     
     updateTheme();
@@ -436,6 +438,7 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event) {
             sendInput(text);
         }
     }
+    event->accept(); // Prevent base class from inserting text
 }
 
 } 

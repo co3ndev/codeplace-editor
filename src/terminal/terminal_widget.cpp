@@ -26,7 +26,7 @@ TerminalWidget::TerminalWidget(QWidget *parent, const QString &workingDirectory)
         m_workingDirectory = QDir::cleanPath(m_workingDirectory);
     }
     
-    m_shell = detectShell();
+        m_shell = "/bin/bash";
     
     m_restartButton = new QPushButton("New Terminal Session?", this);
     m_restartButton->hide();
@@ -75,11 +75,7 @@ void TerminalWidget::setWorkingDirectory(const QString &dir) {
 
     if (m_pty && m_pty->isRunning()) {
         // Use a leading space to prevent the command from being recorded in shell history
-#ifdef Q_OS_WIN
-        sendInput(QString(" cd /d \"%1\"\r\n").arg(m_workingDirectory));
-#else
         sendInput(QString(" cd \"%1\"\n").arg(m_workingDirectory));
-#endif
     }
 }
 
@@ -88,8 +84,6 @@ void TerminalWidget::sendInput(const QString &input) {
         m_pty->write(input.toUtf8());
     }
 }
-
-// Redundant readyRead slots removed, processData is now connected directly to PtyProcess::readyRead
 
 void TerminalWidget::processData(const QByteArray &data) {
     m_ansiBuffer.append(data);
@@ -118,7 +112,6 @@ void TerminalWidget::processData(const QByteArray &data) {
             } else if (c == '\t') {
                 cursor.insertText("    ", currentFormat);
             } else {
-                // Overwrite logic: if not at end of line, replace next char
                 if (!cursor.atBlockEnd()) {
                     cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
                 }
@@ -304,15 +297,6 @@ void TerminalWidget::updateTheme() {
     if (m_restartButton) m_restartButton->setStyleSheet(btnStyle);
 }
 
-QString TerminalWidget::detectShell() {
-#ifdef Q_OS_WIN
-    return "cmd.exe";
-#elif defined(Q_OS_MAC)
-    return "/bin/zsh";
-#else
-    return "/bin/bash";
-#endif
-}
 
 void TerminalWidget::onProcessFinished(int exitCode) {
     appendPlainText(QString("\nProcess finished with exit code %1").arg(exitCode));

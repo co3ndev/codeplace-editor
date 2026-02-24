@@ -62,7 +62,7 @@ We'll review your PR as soon as we can. We may leave feedback or ask questions â
 
 If you've found a bug but aren't up for fixing it yourself, opening an issue is still a valuable contribution. When reporting a bug, please include:
 
-- Your operating system and version
+- Your Linux distribution and version (e.g. Ubuntu 24.04, Fedora 40)
 - How to reproduce the problem (steps, sample files, etc.)
 - What you expected to happen vs. what actually happened
 - Any relevant output from the terminal or editor logs

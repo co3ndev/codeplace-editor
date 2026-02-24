@@ -497,7 +497,7 @@ void MainWindow::createMenus() {
     helpMenu->addAction("&About", [this]() {
         QMessageBox::about(this, "About CodePlace Editor",
             "CodePlace Editor\n"
-            "Version: 0.1.0\n\n"
+            "Version: 0.1.1\n\n"
             "A modern, fast, and lightweight code editor.\n"
             "Developed by Michael Coen.\n"
             "https://github.com/co3ndev/codeplace-editor" );

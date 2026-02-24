@@ -44,7 +44,6 @@ protected:
 
 private:
     void processData(const QByteArray &data);
-    QString detectShell();
     void moveCursorToEnd();
 
     PtyProcess *m_pty;

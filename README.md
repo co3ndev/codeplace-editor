@@ -20,7 +20,7 @@ A lightweight, fast code editor built with C++ and Qt. Whether you're working on
 | **Theme Management** | Choose from multiple themes or create your own using QSS (Qt Style Sheets). |
 | **Syntax Highlighting** | Support for 23 programming languages and file formats. |
 | **Multi-Tab Editing** | Work with multiple files simultaneously using an intuitive tab interface. |
-| **Integrated Terminal** | Run commands and scripts directly in the editor. Uses your user default shell (e.g., bash, zsh). |
+| **Integrated Terminal** | Run commands and scripts directly in the editor. Uses bash. |
 | **Git Integration** | Built-in Source Control Management via Git. |
 | **LSP Support** | Language Server Protocol support for intelligent code completion, errors, and warnings. Note: you must provide the path to the LSP server for each language. |
 
@@ -41,65 +41,65 @@ CodePlace supports syntax highlighting and LSP integration across a wide range o
 ## Getting Started
 
 ### Prerequisites
-```
-A note about building from source: CodePlace is developed and built on Linux, but it should be possible to build it on other platforms as well. If you encounter any issues, please open an issue on GitHub. Linux is our priority, but we aim to remain platform-agnostic.
-```
-Before building CodePlace, ensure you have the following installed:
 
-- **CMake** (version 3.16 or higher)
-- **Qt6** (Core, Gui, Widgets, Network modules)
-- **C++ Compiler** (supporting C++17 standard)
-- **Make** or another CMake-supported build system
+**Note:** CodePlace is built and tested on Linux. It works perfectly on native Linux distros and WSL2. We don't support macOS or native Windows right now—it's just easier to focus on doing one platform really well.
+
+Before building, make sure you have:
+
+- **CMake** (3.16+)
+- **Qt6** (Core, Gui, Widgets, Network, Concurrent)
+- **C++ Compiler** (C++17 support)
+- **Build Tools** (Make, etc.)
+
 On Ubuntu/Debian:
 ```bash
 sudo apt-get install cmake qt6-base-dev qt6-tools-dev build-essential
 ```
 
-On macOS (with Homebrew):
+## Building from source
+
+If you want to build and install from scratch, we've provided a script that handles the cleanup, build, and installation in one go:
+
 ```bash
-brew install cmake qt@6
+chmod +x install.sh
+./install.sh
 ```
 
-### Building from Source
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/codeplace-editor.git
-cd codeplace-editor
-```
-
-2. Create a build directory and compile:
-```bash
-mkdir -p build
-cd build
-cmake ..
-make
-```
-
-The compiled binary will be at `./build/codeplace_editor`.
-
-3. Launch the editor:
-```bash
-./build/codeplace_editor
-```
-
-On first launch, CodePlace will create a configuration directory in your home folder to store settings, themes, and session data.
+Alternatively, you can do it manually:
+1. Build it:
+   ```bash
+   mkdir -p build && cd build
+   cmake ..
+   make -j$(nproc)
+   ```
+2. Install it:
+   ```bash
+   sudo make install
+   ```
 
 ---
 
 ## Installation
 
-Pre-built files are available via our [Releases]([https://github.com/co3ndev/codeplace-editor/packages](https://github.com/co3ndev/codeplace-editor/tree/main/releases)) for Linux (x86_64, arm64. These contain the Qt6 runtime, which is needed for the application to run. 
+### Debian/Ubuntu (.deb)
+We offer a `.deb` package for Debian/Ubuntu based systems. You can download and install it from our [Releases](https://github.com/co3ndev/codeplace-editor/releases) page:
+```bash
+sudo apt install ./codeplace-editor-*.deb
+```
+
+### Generic Linux (.tar.gz)
+For other distributions or if you prefer a standalone archive, download the `.tar.gz` from the Releases page. It includes an `install.sh` script to handle installation:
+```bash
+tar -xzf codeplace-editor-*.tar.gz
+cd codeplace-editor-*
+./install.sh
+```
 
 ---
 
-## Project Structure
-
-Check out the [Module Reference](MODULE_REFERENCE.md) for more information regarding project structure.
-
 ## Configuration
 
-CodePlace stores its configuration at `~/.config/codeplace/` on Linux/macOS. You can manually edit these files to customize editor behavior and keybindings, theme colors and fonts, default file associations, and session restoration preferences.
+CodePlace stores its configuration at `~/.config/codeplace/`. You can manually edit these files to customize editor behavior and keybindings, theme colors and fonts, default file associations, and session restoration preferences.
 
 ---
 

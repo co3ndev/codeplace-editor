@@ -944,7 +944,29 @@ bool EditorView::handleBackspaceKey(QKeyEvent *event) {
                 return true;
             }
         }
+
+        // Pair deletion
+        if (!cursor.hasSelection()) {
+            QChar prev = document()->characterAt(cursor.position() - 1);
+            QChar next = document()->characterAt(cursor.position());
+            
+            bool isPair = (prev == '(' && next == ')') ||
+                          (prev == '[' && next == ']') ||
+                          (prev == '{' && next == '}') ||
+                          (prev == '"' && next == '"') ||
+                          (prev == '\'' && next == '\'') ||
+                          (prev == '<' && next == '>');
+            
+            if (isPair) {
+                cursor.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor);
+                cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, 2);
+                cursor.removeSelectedText();
+                setTextCursor(cursor);
+                return true;
+            }
+        }
     }
+
     return false;
 }
 
@@ -972,25 +994,52 @@ bool EditorView::handleEnterKey(QKeyEvent *event) {
 
 bool EditorView::handleAutoClosingPairs(QKeyEvent *event) {
     QString text = event->text();
-    if (text.isEmpty()) return false;
+    if (text.isEmpty() || text.length() > 1) return false;
 
     QTextCursor cursor = textCursor();
     QChar current = document()->characterAt(cursor.position());
+    QChar prev = document()->characterAt(cursor.position() - 1);
 
-    
-    if (text == "(" || text == "[" || text == "{" || text == "<") {
-        QChar closing = (text == "(") ? ')' : (text == "[" ? ']' : (text == "{" ? '}' : '>'));
-        cursor.insertText(text + closing);
-        cursor.movePosition(QTextCursor::PreviousCharacter);
+    // Overtyping
+    QString overtypable = ")]}\"'>";
+    if (overtypable.contains(text) && current == text[0]) {
+        // Only overtype quotes if we're not starting a string
+        if (text == "\"" || text == "'") {
+            // If the previous char is a backslash, don't overtype, it might be an escaped quote we're typing
+            if (prev == '\\') return false;
+        }
+        cursor.movePosition(QTextCursor::NextCharacter);
         setTextCursor(cursor);
         return true;
     }
 
-    
-    if ((text == ")" || text == "]" || text == "}") && current == text[0]) {
-        cursor.movePosition(QTextCursor::NextCharacter);
-        setTextCursor(cursor);
-        return true;
+    // Auto-closing
+    if (text == "(" || text == "[" || text == "{" || text == "\"" || text == "'" || text == "<") {
+        // Special check for <
+        if (text == "<" && !isHtmlLikeLanguage(getFileType())) {
+            return false;
+        }
+
+        // Special check for quotes - don't auto-close if after a letter or number (likely apostrophe or dimension)
+        if ((text == "\"" || text == "'") && prev.isLetterOrNumber()) {
+             return false;
+        }
+
+        // Only auto-close if next character is whitespace, a closing bracket, or end of line
+        bool shouldAutoClose = current.isNull() || current.isSpace() || QString(")]}\"'>,;").contains(current);
+        
+        if (shouldAutoClose) {
+            QChar closing = (text == "(") ? ')' : 
+                            (text == "[") ? ']' : 
+                            (text == "{") ? '}' : 
+                            (text == "\"") ? '"' : 
+                            (text == "'") ? '\'' : '>';
+            
+            cursor.insertText(text + closing);
+            cursor.movePosition(QTextCursor::PreviousCharacter);
+            setTextCursor(cursor);
+            return true;
+        }
     }
 
     

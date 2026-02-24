@@ -14,70 +14,7 @@
 
 namespace Search {
 
-class SearchItemDelegate : public QStyledItemDelegate {
-public:
-    using QStyledItemDelegate::QStyledItemDelegate;
 
-    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
-        QStyleOptionViewItem opt = option;
-        initStyleOption(&opt, index);
-
-        if (index.column() == 1) { 
-            painter->save();
-
-            
-            QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
-            style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, opt.widget);
-
-            
-            QTextDocument doc;
-            doc.setDocumentMargin(4);
-            doc.setDefaultFont(opt.font);
-            
-            QString text = index.data().toString();
-            doc.setPlainText(text);
-            
-            QTextCharFormat format;
-            format.setForeground(opt.palette.text());
-            QTextCursor cursor(&doc);
-            cursor.select(QTextCursor::Document);
-            cursor.mergeCharFormat(format);
-            
-            doc.setTextWidth(opt.rect.width());
-
-            painter->translate(opt.rect.left(), opt.rect.top());
-            QRect clip(0, 0, opt.rect.width(), opt.rect.height());
-            doc.drawContents(painter, clip);
-
-            painter->restore();
-        } else {
-            QStyledItemDelegate::paint(painter, option, index);
-        }
-    }
-
-    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
-        if (index.column() == 1) {
-            QStyleOptionViewItem opt = option;
-            initStyleOption(&opt, index);
-
-            QTextDocument doc;
-            doc.setDocumentMargin(4);
-            doc.setDefaultFont(opt.font);
-            doc.setPlainText(index.data().toString());
-            
-            
-            
-            int width = 200; 
-            if (const QTreeView *view = qobject_cast<const QTreeView*>(opt.widget)) {
-                width = view->columnWidth(1);
-            }
-            doc.setTextWidth(width);
-            
-            return QSize(width, doc.size().height());
-        }
-        return QStyledItemDelegate::sizeHint(option, index);
-    }
-};
 
 SearchWidget::SearchWidget(QWidget *parent) : QWidget(parent) {
     m_engine = new SearchEngine(this);
@@ -137,17 +74,14 @@ void SearchWidget::setupUI() {
     m_resultsTree = new QTreeWidget(this);
     m_resultsTree->setHeaderLabels({"Location", "Preview"});
     m_resultsTree->setColumnCount(2);
-    m_resultsTree->header()->setStretchLastSection(true);
-    m_resultsTree->header()->setSectionResizeMode(0, QHeaderView::Interactive);
+    m_resultsTree->header()->setStretchLastSection(false);
+    m_resultsTree->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_resultsTree->header()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_resultsTree->setAnimated(false);
-    m_resultsTree->setUniformRowHeights(true);
-    m_resultsTree->setVerticalScrollMode(QAbstractItemView::ScrollPerItem);
+    m_resultsTree->setUniformRowHeights(false);
+    m_resultsTree->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_resultsTree->setAlternatingRowColors(true);
-    m_resultsTree->setWordWrap(true);
-    
-    
-    m_resultsTree->setItemDelegate(new SearchItemDelegate(m_resultsTree));
+    m_resultsTree->setMinimumHeight(200);
     
     layout->addWidget(m_resultsTree);
 

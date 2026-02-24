@@ -160,16 +160,6 @@ install(FILES resources/codeplace.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/i
 # Installation documentation and script for Tarball distribution
 install(FILES resources/INSTALL.md resources/install.sh DESTINATION .)
 
-# Qt Deployment (Linux-specific/General)
-if(Qt6_FOUND AND COMMAND qt_generate_deploy_app_script)
-    qt_generate_deploy_app_script(
-        TARGET codeplace
-        FILENAME_VARIABLE deploy_script
-        NO_UNSUPPORTED_PLATFORM_ERROR
-    )
-    install(SCRIPT ${deploy_script})
-endif()
-
 # --- Distribution Packaging (CPack) ---
 
 set(CPACK_PACKAGE_NAME "codeplace-editor")
@@ -194,9 +184,8 @@ set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
-# Explicitly call for dependencies to ensure they are listed in the package
-# This combines automatic library detection with explicit package requirements
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libstdc++6, libqt6widgets6, libqt6gui6, libqt6core6, libqt6network6, libqt6concurrent6")
+# Additional runtime dependencies for plugins that are not automatically detected
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-qpa-plugins, qt6-wayland, libxkbcommon-x11-0")
 
 set(CPACK_STRIP_FILES TRUE)
 

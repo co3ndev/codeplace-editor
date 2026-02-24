@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/codeplace.png</file>
+    </qresource>
+</RCC>

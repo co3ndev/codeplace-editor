@@ -7,6 +7,7 @@
 #include <QStyle>
 #include <QEnterEvent>
 #include <QPushButton>
+#include "../core/theme_manager.h"
 
 AiMessageWidget::AiMessageWidget(QWidget *parent) : QWidget(parent), m_isUser(false) {
     auto *layout = new QVBoxLayout(this);
@@ -22,19 +23,7 @@ AiMessageWidget::AiMessageWidget(QWidget *parent) : QWidget(parent), m_isUser(fa
     m_copyButton->setToolTip("Copy message");
     m_copyButton->setFlat(true);
     m_copyButton->setText("Copy");
-    m_copyButton->setStyleSheet(
-        "QPushButton {"
-        "  border: none;"
-        "  background: transparent;"
-        "  color: #888888;"
-        "  font-size: 11px;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: rgba(255, 255, 255, 30);"
-        "  border-radius: 4px;"
-        "  color: #ffffff;"
-        "}"
-    );
+    
     m_copyButton->hide();
     
     headerLayout->addWidget(m_copyButton);
@@ -52,6 +41,9 @@ AiMessageWidget::AiMessageWidget(QWidget *parent) : QWidget(parent), m_isUser(fa
     layout->addWidget(m_textBrowser);
 
     connect(m_copyButton, &QPushButton::clicked, this, &AiMessageWidget::onCopyClicked);
+    connect(&Core::ThemeManager::instance(), &Core::ThemeManager::themeChanged, this, &AiMessageWidget::applyTheme);
+    
+    applyTheme();
 }
 
 void AiMessageWidget::setMessage(const QString &text, bool isUser) {
@@ -65,31 +57,61 @@ void AiMessageWidget::setMessage(const QString &text, bool isUser) {
     m_textBrowser->setMinimumHeight(height);
     m_textBrowser->setMaximumHeight(height);
 
+    updateStyleSheet();
+
     if (isUser) {
-        m_textBrowser->setStyleSheet(
-            "QTextBrowser {"
-            "  background-color: #2b3d52;"
-            "  color: #ffffff;"
-            "  border-radius: 8px;"
-            "  padding: 8px;"
-            "  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"
-            "  font-size: 13px;"
-            "}"
-        );
         layout()->setContentsMargins(40, 2, 5, 5);
     } else {
-        m_textBrowser->setStyleSheet(
-            "QTextBrowser {"
-            "  background-color: #323232;"
-            "  color: #e0e0e0;"
-            "  border-radius: 8px;"
-            "  padding: 8px;"
-            "  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"
-            "  font-size: 13px;"
-            "}"
-        );
         layout()->setContentsMargins(5, 2, 40, 5);
     }
+}
+
+void AiMessageWidget::applyTheme() {
+    updateStyleSheet();
+    
+    auto &tm = Core::ThemeManager::instance();
+    QColor fg = tm.getColor(Core::ThemeManager::EditorForeground);
+    QColor hoverBg = tm.getColor(Core::ThemeManager::LineHighlight);
+    
+    m_copyButton->setStyleSheet(
+        QString("QPushButton {"
+        "  border: none;"
+        "  background: transparent;"
+        "  color: %1;"
+        "  font-size: 11px;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: %2;"
+        "  border-radius: 4px;"
+        "  color: %3;"
+        "}").arg(fg.name(QColor::HexArgb), hoverBg.name(QColor::HexArgb), fg.name())
+    );
+}
+
+void AiMessageWidget::updateStyleSheet() {
+    auto &tm = Core::ThemeManager::instance();
+    
+    QColor bg;
+    QColor fg;
+    
+    if (m_isUser) {
+        bg = tm.getColor(Core::ThemeManager::SelectionBackground);
+        fg = (bg.lightness() > 140) ? QColor("#000000") : QColor("#ffffff");
+    } else {
+        bg = tm.getColor(Core::ThemeManager::LineHighlight);
+        fg = tm.getColor(Core::ThemeManager::EditorForeground);
+    }
+
+    m_textBrowser->setStyleSheet(
+        QString("QTextBrowser {"
+        "  background-color: %1;"
+        "  color: %2;"
+        "  border-radius: 8px;"
+        "  padding: 8px;"
+        "  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"
+        "  font-size: 13px;"
+        "}").arg(bg.name(QColor::HexArgb), fg.name(QColor::HexArgb))
+    );
 }
 
 void AiMessageWidget::enterEvent(QEnterEvent *event) {

@@ -2,6 +2,7 @@
 #include "ai_message_widget.h"
 #include "../core/ai_client.h"
 #include "../core/settings_manager.h"
+#include "../core/theme_manager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QScrollArea>
@@ -11,6 +12,8 @@
 
 AiChatSidebar::AiChatSidebar(QWidget *parent) : QWidget(parent) {
     setupUi();
+    connect(&Core::ThemeManager::instance(), &Core::ThemeManager::themeChanged, this, &AiChatSidebar::applyTheme);
+    applyTheme();
 }
 
 void AiChatSidebar::setupUi() {
@@ -35,8 +38,8 @@ void AiChatSidebar::setupUi() {
     mainLayout->addWidget(m_scrollArea, 1);
 
     // Input Area
-    auto *inputContainer = new QWidget(this);
-    auto *inputLayout = new QVBoxLayout(inputContainer);
+    m_inputContainer = new QWidget(this);
+    auto *inputLayout = new QVBoxLayout(m_inputContainer);
     inputLayout->setContentsMargins(10, 10, 10, 10);
 
     m_inputEdit = new QTextEdit(this);
@@ -55,10 +58,21 @@ void AiChatSidebar::setupUi() {
     buttonLayout->addWidget(m_sendButton);
     inputLayout->addLayout(buttonLayout);
 
-    mainLayout->addWidget(inputContainer);
+    mainLayout->addWidget(m_inputContainer);
 
     connect(m_sendButton, &QPushButton::clicked, this, &AiChatSidebar::onSendClicked);
     connect(m_contextButton, &QPushButton::clicked, this, &AiChatSidebar::onContextClicked);
+}
+
+void AiChatSidebar::applyTheme() {
+    auto &tm = Core::ThemeManager::instance();
+    QColor borderColor = tm.getColor(Core::ThemeManager::FindBarBorder);
+    
+    // Add a subtle border at the top of the input container
+    m_inputContainer->setStyleSheet(
+        QString("#inputContainer { border-top: 1px solid %1; }").arg(borderColor.name())
+    );
+    m_inputContainer->setObjectName("inputContainer");
 }
 
 bool AiChatSidebar::eventFilter(QObject *obj, QEvent *event) {

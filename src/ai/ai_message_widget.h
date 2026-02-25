@@ -11,6 +11,7 @@ public:
     explicit AiMessageWidget(QWidget *parent = nullptr);
 
     void setMessage(const QString &text, bool isUser);
+    void applyTheme();
 
 protected:
     void enterEvent(QEnterEvent *event) override;
@@ -18,6 +19,8 @@ protected:
 
 private slots:
     void onCopyClicked();
+
+    void updateStyleSheet();
 
 private:
     QTextBrowser *m_textBrowser;

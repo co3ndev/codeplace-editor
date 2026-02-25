@@ -13,6 +13,7 @@ public:
     explicit AiChatSidebar(QWidget *parent = nullptr);
 
     void addMessage(const QString &text, bool isUser);
+    void applyTheme();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -28,6 +29,7 @@ private:
     QTextEdit *m_inputEdit;
     QPushButton *m_sendButton;
     QPushButton *m_contextButton;
+    QWidget *m_inputContainer;
 
     void setupUi();
 };

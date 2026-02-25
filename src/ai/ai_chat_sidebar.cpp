@@ -9,6 +9,60 @@
 #include <QScrollBar>
 #include <QKeyEvent>
 #include <QApplication>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QLabel>
+#include <QToolButton>
+#include <QFrame>
+#include <QTimer>
+#include <QMenu>
+#include <QDirIterator>
+#include "../editor/tab_container.h"
+#include "../core/project_manager.h"
+
+class AiContextChip : public QFrame {
+public:
+    AiContextChip(const QString &filePath, QWidget *parent = nullptr) : QFrame(parent) {
+        setObjectName("contextChip");
+        auto *layout = new QHBoxLayout(this);
+        layout->setContentsMargins(8, 2, 4, 2);
+        layout->setSpacing(4);
+
+        QString fileName = QFileInfo(filePath).fileName();
+        auto *label = new QLabel(fileName, this);
+        label->setStyleSheet("font-size: 11px;");
+        layout->addWidget(label);
+
+        auto *closeBtn = new QToolButton(this);
+        closeBtn->setText("×");
+        closeBtn->setCursor(Qt::PointingHandCursor);
+        closeBtn->setAutoRaise(true);
+        closeBtn->setStyleSheet("QToolButton { border: none; font-weight: bold; font-size: 14px; } QToolButton:hover { color: red; }");
+        layout->addWidget(closeBtn);
+
+        connect(closeBtn, &QToolButton::clicked, [this, filePath]() {
+            emit removed(filePath);
+        });
+
+        applyTheme();
+    }
+
+    void applyTheme() {
+        auto &tm = Core::ThemeManager::instance();
+        QColor bgColor = tm.getColor(Core::ThemeManager::EditorBackground);
+        // Make it slightly different from background
+        bgColor = bgColor.lightness() > 128 ? bgColor.darker(110) : bgColor.lighter(130);
+        QColor borderColor = tm.getColor(Core::ThemeManager::FindBarBorder);
+        QColor textColor = tm.getColor(Core::ThemeManager::EditorForeground);
+
+        setStyleSheet(QString(
+            "#contextChip { background-color: %1; border: 1px solid %2; border-radius: 10px; color: %3; }"
+        ).arg(bgColor.name()).arg(borderColor.name()).arg(textColor.name()));
+    }
+
+signals:
+    void removed(const QString &filePath);
+};
 
 AiChatSidebar::AiChatSidebar(QWidget *parent) : QWidget(parent) {
     setupUi();
@@ -62,6 +116,25 @@ void AiChatSidebar::setupUi() {
 
     connect(m_sendButton, &QPushButton::clicked, this, &AiChatSidebar::onSendClicked);
     connect(m_contextButton, &QPushButton::clicked, this, &AiChatSidebar::onContextClicked);
+
+    // Chips Area
+    m_chipsScrollArea = new QScrollArea(this);
+    m_chipsScrollArea->setWidgetResizable(true);
+    m_chipsScrollArea->setFrameShape(QFrame::NoFrame);
+    m_chipsScrollArea->setFixedHeight(35);
+    m_chipsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_chipsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+    m_chipsContainer = new QWidget();
+    m_chipsLayout = new QHBoxLayout(m_chipsContainer);
+    m_chipsLayout->setContentsMargins(5, 5, 5, 5);
+    m_chipsLayout->setSpacing(5);
+    m_chipsLayout->addStretch();
+
+    m_chipsScrollArea->setWidget(m_chipsContainer);
+    m_chipsScrollArea->hide(); // Hide initially until we have chips
+
+    inputLayout->insertWidget(0, m_chipsScrollArea);
 }
 
 void AiChatSidebar::applyTheme() {
@@ -73,6 +146,149 @@ void AiChatSidebar::applyTheme() {
         QString("#inputContainer { border-top: 1px solid %1; }").arg(borderColor.name())
     );
     m_inputContainer->setObjectName("inputContainer");
+
+    // Update chips theme if any
+    for (int i = 0; i < m_chipsLayout->count(); ++i) {
+        if (auto *chip = qobject_cast<AiContextChip*>(m_chipsLayout->itemAt(i)->widget())) {
+            chip->applyTheme();
+        }
+    }
+}
+
+void AiChatSidebar::setTabContainer(Editor::TabContainer *container) {
+    m_tabContainer = container;
+}
+
+void AiChatSidebar::addAttachedFolder(const QString &folderPath) {
+    if (m_attachedFiles.contains(folderPath)) return; // Use same list for simplicity but mark as folder
+    m_attachedFiles.append(folderPath);
+    
+    auto *chip = new AiContextChip(folderPath, m_chipsContainer);
+    // Maybe make folder chips look slightly different? Or just same is fine.
+    
+    m_chipsLayout->insertWidget(m_chipsLayout->count() - 1, chip);
+    connect(chip, &AiContextChip::removed, this, &AiChatSidebar::removeAttachedFile); // Re-use removeAttachedFile
+    m_chipsScrollArea->show();
+}
+
+void AiChatSidebar::removeAttachedFolder(const QString &folderPath) {
+    removeAttachedFile(folderPath);
+}
+
+QString AiChatSidebar::getFullContext() const {
+    QString context;
+
+    // 1. Open Files
+    if (m_tabContainer) {
+        QStringList paths = m_tabContainer->openFilePaths();
+        if (!paths.isEmpty()) {
+            context += "=== Currently Open Files ===\n";
+            for (int i = 0; i < m_tabContainer->count(); ++i) {
+                QString path = paths[i];
+                if (path.isEmpty()) continue;
+                context += QString("--- File: %1 ---\n").arg(QFileInfo(path).fileName());
+                context += m_tabContainer->getFileContent(i);
+                context += "\n\n";
+            }
+        }
+    }
+
+    // 2. Attached Files & Folders
+    if (!m_attachedFiles.isEmpty()) {
+        context += "=== Additional Context ===\n";
+        for (const QString &path : m_attachedFiles) {
+            QFileInfo fi(path);
+            if (fi.isDir()) {
+                context += QString("--- Folder: %1 ---\n").arg(fi.fileName());
+                QDirIterator it(path, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+                while (it.hasNext()) {
+                    QString filePath = it.next();
+                    QFile file(filePath);
+                    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                        context += QString("  [File: %1]\n").arg(QDir(path).relativeFilePath(filePath));
+                        context += file.readAll();
+                        context += "\n";
+                    }
+                }
+            } else {
+                QFile file(path);
+                if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                    context += QString("--- File: %1 ---\n").arg(fi.fileName());
+                    context += file.readAll();
+                    context += "\n\n";
+                }
+            }
+        }
+    }
+
+    // 3. Snippets
+    if (!m_attachedSnippets.isEmpty()) {
+        context += "=== Selected Snippets ===\n";
+        for (const QString &snippet : m_attachedSnippets) {
+            context += "--- Snippet ---\n";
+            context += snippet;
+            context += "\n\n";
+        }
+    }
+
+    return context;
+}
+
+void AiChatSidebar::addAttachedSnippet(const QString &text) {
+    if (text.isEmpty()) return;
+    m_attachedSnippets.append(text);
+    
+    QString display = text.left(20);
+    if (text.length() > 20) display += "...";
+    auto *chip = new AiContextChip("Snippet: " + display, m_chipsContainer);
+    
+    m_chipsLayout->insertWidget(m_chipsLayout->count() - 1, chip);
+    connect(chip, &AiContextChip::removed, [this, text](const QString &) {
+        m_attachedSnippets.removeAll(text);
+        if (auto *c = qobject_cast<AiContextChip*>(sender())) {
+            c->deleteLater();
+        }
+    });
+
+    m_chipsScrollArea->show();
+}
+
+void AiChatSidebar::addAttachedFile(const QString &filePath) {
+    if (m_attachedFiles.contains(filePath)) return;
+
+    m_attachedFiles.append(filePath);
+    
+    auto *chip = new AiContextChip(filePath, m_chipsContainer);
+    
+    // Insert before the stretch at the end
+    m_chipsLayout->insertWidget(m_chipsLayout->count() - 1, chip);
+    
+    connect(chip, &AiContextChip::removed, this, &AiChatSidebar::removeAttachedFile);
+
+    m_chipsScrollArea->show();
+}
+
+void AiChatSidebar::removeAttachedFile(const QString &filePath) {
+    m_attachedFiles.removeAll(filePath);
+    if (auto *chip = qobject_cast<AiContextChip*>(sender())) {
+        chip->deleteLater();
+    }
+    
+    // Hide scroll area if no more chips (delayed check because deleteLater)
+    QTimer::singleShot(0, this, [this]() {
+        if (m_attachedFiles.isEmpty()) {
+            m_chipsScrollArea->hide();
+        }
+    });
+}
+
+// Better implementation using sender()
+void AiChatSidebar::clearChips() {
+    while (m_chipsLayout->count() > 1) { // Keep the stretch
+        auto *item = m_chipsLayout->takeAt(0);
+        delete item->widget();
+        delete item;
+    }
 }
 
 bool AiChatSidebar::eventFilter(QObject *obj, QEvent *event) {
@@ -111,5 +327,32 @@ void AiChatSidebar::onSendClicked() {
 }
 
 void AiChatSidebar::onContextClicked() {
-    // Logic for adding context will be in Phase 5
+    QMenu menu(this);
+    menu.addAction("Add File(s)...", [this]() {
+        QString root = Core::ProjectManager::instance().projectRoot();
+        QStringList files = QFileDialog::getOpenFileNames(this, "Add Context Files", root);
+        for (const QString &file : files) {
+            addAttachedFile(file);
+        }
+    });
+    menu.addAction("Add Folder...", [this]() {
+        QString root = Core::ProjectManager::instance().projectRoot();
+        QString folder = QFileDialog::getExistingDirectory(this, "Add Context Folder", root);
+        if (!folder.isEmpty()) {
+            addAttachedFolder(folder);
+        }
+    });
+
+    menu.addAction("Add Selection", [this]() {
+        if (m_tabContainer && m_tabContainer->currentEditor()) {
+            QString selection = m_tabContainer->currentEditor()->textCursor().selectedText();
+            // QPlainTextEdit selectedText() uses U+2029 for paragraph separator
+            selection.replace(QChar(0x2029), '\n');
+            if (!selection.isEmpty()) {
+                addAttachedSnippet(selection);
+            }
+        }
+    });
+    
+    menu.exec(m_contextButton->mapToGlobal(QPoint(0, -menu.sizeHint().size().height())));
 }

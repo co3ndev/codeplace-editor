@@ -396,6 +396,14 @@ QStringList TabContainer::openFilePaths() const {
     return paths;
 }
 
+QString TabContainer::getFileContent(int index) const {
+    if (index < 0 || index >= m_tabs.size()) return QString();
+    if (auto *editor = qobject_cast<EditorView*>(m_tabs[index].widget)) {
+        return editor->toPlainText();
+    }
+    return QString();
+}
+
 void TabContainer::applySettings() {
     for (auto &info : m_tabs) {
         if (auto *editor = qobject_cast<EditorView*>(info.widget)) {

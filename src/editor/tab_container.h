@@ -34,6 +34,7 @@ public:
     void setCurrentIndex(int index);
     QString currentFilePath() const;
     QStringList openFilePaths() const;
+    QString getFileContent(int index) const;
     
     void applySettings();
     

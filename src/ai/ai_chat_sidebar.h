@@ -6,6 +6,9 @@
 #include <QVBoxLayout>
 #include <QTextEdit>
 #include <QPushButton>
+#include <QHBoxLayout>
+
+namespace Editor { class TabContainer; }
 
 class AiChatSidebar : public QWidget {
     Q_OBJECT
@@ -14,6 +17,15 @@ public:
 
     void addMessage(const QString &text, bool isUser);
     void applyTheme();
+    void setTabContainer(Editor::TabContainer *container);
+
+    void addAttachedFile(const QString &filePath);
+    void addAttachedFolder(const QString &folderPath);
+    void addAttachedSnippet(const QString &text);
+    void removeAttachedFile(const QString &filePath);
+    void removeAttachedFolder(const QString &folderPath);
+
+    QString getFullContext() const;
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -30,8 +42,16 @@ private:
     QPushButton *m_sendButton;
     QPushButton *m_contextButton;
     QWidget *m_inputContainer;
+    QWidget *m_chipsContainer;
+    QHBoxLayout *m_chipsLayout;
+    QScrollArea *m_chipsScrollArea;
+
+    Editor::TabContainer *m_tabContainer = nullptr;
+    QList<QString> m_attachedFiles;
+    QList<QString> m_attachedSnippets;
 
     void setupUi();
+    void clearChips();
 };
 
 #endif // AI_CHAT_SIDEBAR_H

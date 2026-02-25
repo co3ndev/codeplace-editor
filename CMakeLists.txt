@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 # Project Information
 project(CodePlaceEditor 
-    VERSION 0.2.0-pre1-pre1 
+    VERSION 0.2.0 
     LANGUAGES CXX
     DESCRIPTION "Modern, efficient code editor"
     HOMEPAGE_URL "https://github.com/co3ndev/codeplace-editor"

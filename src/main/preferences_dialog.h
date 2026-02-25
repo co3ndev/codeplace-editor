@@ -13,6 +13,9 @@
 #include <QLabel>
 #include "lspclient/lspclient_widget.h"
 
+class AiClient;
+namespace LspClient { class LspClientWidget; }
+
 namespace Main {
 
 class PreferencesDialog final : public QDialog {
@@ -27,6 +30,11 @@ private slots:
     void saveAndClose();
     void onShortcutCellDoubleClicked(int row, int column);
     void resetShortcuts();
+    
+    // AI Slots
+    void onAiProviderChanged(int index);
+    void onAiFetchModelsClicked();
+    void onAiModelsReceived(const QStringList &models);
 
 private:
     QTabWidget *tabWidget;
@@ -45,10 +53,21 @@ private:
 
     LspClient::LspClientWidget *lspWidget;
 
+    // AI Tab members
+    QComboBox *aiProviderCombo;
+    QWidget *aiOpenRouterKeyWidget;
+    QLineEdit *aiOpenRouterKeyEdit;
+    QWidget *aiLocalUrlWidget;
+    QLineEdit *aiLocalUrlEdit;
+    QComboBox *aiModelCombo;
+    QPushButton *aiFetchModelsButton;
+    AiClient *aiClient;
+
     void setupUi();
     void setupGeneralTab();
     void setupShortcutsTab();
     void setupLspTab();
+    void setupAiTab();
     void loadSettings();
     void populateShortcutsTable();
 };

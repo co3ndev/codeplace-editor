@@ -2,6 +2,7 @@
 #include "core/settings_manager.h"
 #include "core/theme_manager.h"
 #include "core/default_shortcuts.h"
+#include "core/ai_client.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -19,6 +20,7 @@ PreferencesDialog::PreferencesDialog(QWidget *parent) : QDialog(parent) {
     setWindowTitle("Preferences");
     
     defaultShortcuts = Core::defaultShortcuts();
+    aiClient = new AiClient(this);
 
     setupUi();
     loadSettings();
@@ -32,6 +34,7 @@ void PreferencesDialog::setupUi() {
     setupGeneralTab();
     setupShortcutsTab();
     setupLspTab();
+    setupAiTab();
     
     mainLayout->addWidget(tabWidget);
     
@@ -117,6 +120,59 @@ void PreferencesDialog::setupLspTab() {
     tabWidget->addTab(lspWidget, "LSP Settings");
 }
 
+void PreferencesDialog::setupAiTab() {
+    auto *aiWidget = new QWidget();
+    auto *layout = new QVBoxLayout(aiWidget);
+    auto *formLayout = new QFormLayout();
+
+    aiProviderCombo = new QComboBox();
+    aiProviderCombo->addItems({"OpenRouter", "Local"});
+    formLayout->addRow("Provider:", aiProviderCombo);
+
+    // OpenRouter Key field
+    aiOpenRouterKeyEdit = new QLineEdit();
+    aiOpenRouterKeyEdit->setEchoMode(QLineEdit::Password);
+    aiOpenRouterKeyWidget = new QWidget();
+    auto *orLayout = new QVBoxLayout(aiOpenRouterKeyWidget);
+    orLayout->setContentsMargins(0, 0, 0, 0);
+    orLayout->addWidget(aiOpenRouterKeyEdit);
+    formLayout->addRow("OpenRouter API Key:", aiOpenRouterKeyWidget);
+
+    // Local URL field
+    aiLocalUrlEdit = new QLineEdit();
+    aiLocalUrlWidget = new QWidget();
+    auto *localLayout = new QVBoxLayout(aiLocalUrlWidget);
+    localLayout->setContentsMargins(0, 0, 0, 0);
+    localLayout->addWidget(aiLocalUrlEdit);
+    formLayout->addRow("Local API URL:", aiLocalUrlWidget);
+
+    // Model selection
+    aiModelCombo = new QComboBox();
+    aiModelCombo->setEditable(true);
+    aiModelCombo->setInsertPolicy(QComboBox::NoInsert);
+    aiModelCombo->completer()->setFilterMode(Qt::MatchContains);
+    aiModelCombo->setMinimumWidth(300);
+    formLayout->addRow("Selected Model:", aiModelCombo);
+
+    aiFetchModelsButton = new QPushButton("Fetch Models");
+    formLayout->addRow("", aiFetchModelsButton);
+
+    layout->addLayout(formLayout);
+    layout->addStretch();
+
+    tabWidget->addTab(aiWidget, "AI Chat");
+
+    connect(aiProviderCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), 
+            this, &PreferencesDialog::onAiProviderChanged);
+    connect(aiFetchModelsButton, &QPushButton::clicked, this, &PreferencesDialog::onAiFetchModelsClicked);
+    connect(aiClient, &AiClient::modelsFetched, this, &PreferencesDialog::onAiModelsReceived);
+    connect(aiClient, &AiClient::errorOccurred, this, [this](const QString &error) {
+        Q_UNUSED(error);
+        aiFetchModelsButton->setText("Fetch Models (Failed)");
+        aiFetchModelsButton->setEnabled(true);
+    });
+}
+
 void PreferencesDialog::populateShortcutsTable() {
     shortcutsTable->setRowCount(0);
     
@@ -146,6 +202,19 @@ void PreferencesDialog::loadSettings() {
     wordWrapCheck->setChecked(settings.wordWrap());
     uiScaleSpin->setValue(settings.uiScale());
     
+    // AI Settings
+    aiProviderCombo->setCurrentText(settings.aiProvider());
+    aiOpenRouterKeyEdit->setText(settings.aiOpenRouterKey());
+    aiLocalUrlEdit->setText(settings.aiLocalUrl());
+    
+    QString selectedModel = settings.aiSelectedModel();
+    if (!selectedModel.isEmpty()) {
+        aiModelCombo->addItem(selectedModel);
+        aiModelCombo->setCurrentText(selectedModel);
+    }
+    
+    onAiProviderChanged(aiProviderCombo->currentIndex());
+    
     
     shortcutMap = defaultShortcuts;
     for (auto it = defaultShortcuts.begin(); it != defaultShortcuts.end(); ++it) {
@@ -157,6 +226,47 @@ void PreferencesDialog::loadSettings() {
 
 void PreferencesDialog::onThemeChanged(const QString &themeName) {
     Core::ThemeManager::instance().applyTheme(themeName);
+}
+
+void PreferencesDialog::onAiProviderChanged(int index) {
+    if (aiProviderCombo->itemText(index) == "OpenRouter") {
+        aiOpenRouterKeyWidget->show();
+        aiLocalUrlWidget->hide();
+    } else {
+        aiOpenRouterKeyWidget->hide();
+        aiLocalUrlWidget->show();
+    }
+}
+
+void PreferencesDialog::onAiFetchModelsClicked() {
+    aiFetchModelsButton->setEnabled(false);
+    aiFetchModelsButton->setText("Fetching...");
+    
+    QString baseUrl;
+    QString apiKey;
+    
+    if (aiProviderCombo->currentText() == "OpenRouter") {
+        baseUrl = "https://openrouter.ai/api/v1";
+        apiKey = aiOpenRouterKeyEdit->text();
+    } else {
+        baseUrl = aiLocalUrlEdit->text();
+        apiKey = "";
+    }
+    
+    aiClient->fetchModels(baseUrl, apiKey);
+}
+
+void PreferencesDialog::onAiModelsReceived(const QStringList &models) {
+    QString currentModel = aiModelCombo->currentText();
+    aiModelCombo->clear();
+    aiModelCombo->addItems(models);
+    
+    if (models.contains(currentModel)) {
+        aiModelCombo->setCurrentText(currentModel);
+    }
+    
+    aiFetchModelsButton->setEnabled(true);
+    aiFetchModelsButton->setText("Fetch Models");
 }
 
 void PreferencesDialog::onShortcutCellDoubleClicked(int row, int column) {
@@ -192,6 +302,12 @@ void PreferencesDialog::saveAndClose() {
     settings.setTabSize(tabSizeSpin->value());
     settings.setWordWrap(wordWrapCheck->isChecked());
     settings.setUIScale(uiScaleSpin->value());
+    
+    // Save AI Settings
+    settings.setAiProvider(aiProviderCombo->currentText());
+    settings.setAiOpenRouterKey(aiOpenRouterKeyEdit->text());
+    settings.setAiLocalUrl(aiLocalUrlEdit->text());
+    settings.setAiSelectedModel(aiModelCombo->currentText());
     
     
     for (auto it = shortcutMap.begin(); it != shortcutMap.end(); ++it) {

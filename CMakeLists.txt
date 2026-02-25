@@ -111,6 +111,16 @@ set(LSPCLIENT_SOURCES
     src/lspclient/problems_widget.cpp
 )
 
+# AI sources
+set(AI_SOURCES
+    src/core/ai_client.h
+    src/core/ai_client.cpp
+    src/ai/ai_chat_sidebar.h
+    src/ai/ai_chat_sidebar.cpp
+    src/ai/ai_message_widget.h
+    src/ai/ai_message_widget.cpp
+)
+
 # Main sources
 set(MAIN_SOURCES
     src/main.cpp
@@ -132,8 +142,10 @@ add_executable(codeplace
     ${OUTLINE_SOURCES}
     ${GITSCM_SOURCES}
     ${LSPCLIENT_SOURCES}
+    ${AI_SOURCES}
     ${MAIN_SOURCES}
 )
+
 
 target_compile_options(codeplace PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(codeplace PRIVATE 

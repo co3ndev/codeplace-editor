@@ -140,12 +140,16 @@ void MainWindow::setupLayout() {
     tabifyDockWidget(m_searchDock, m_outlineDock);
     tabifyDockWidget(m_outlineDock, m_gitscmDock);
     
+    m_aiSidebar = new AiChatSidebar(this);
+    m_aiDock = createDockWidget("AI Chat", "aiDock", m_aiSidebar, Qt::RightDockWidgetArea);
+
     tabifyDockWidget(m_terminalDock, m_problemsDock);
 
     m_sidebarDock->show();
     m_searchDock->show();
     m_outlineDock->show();
     m_gitscmDock->show();
+    m_aiDock->show();
     m_terminalDock->show();
     m_problemsDock->show();
 
@@ -376,6 +380,11 @@ void MainWindow::createMenus() {
     toggleGitScmAction->setChecked(m_gitscmDock->isVisible());
     m_actionMap["Toggle Source Control"] = toggleGitScmAction;
 
+    auto *toggleAiChatAction = appearanceSubMenu->addAction("&AI Chat", [this](bool checked) { m_aiDock->setVisible(checked); });
+    toggleAiChatAction->setCheckable(true);
+    toggleAiChatAction->setChecked(m_aiDock->isVisible());
+    m_actionMap["Toggle AI Chat"] = toggleAiChatAction;
+
     appearanceSubMenu->addSeparator();
 
     auto *toggleTerminalAction = appearanceSubMenu->addAction("&Terminal", [this](bool checked) { m_terminalDock->setVisible(checked); });
@@ -401,6 +410,7 @@ void MainWindow::createMenus() {
         toggleSearchAction->setChecked(!m_searchDock->isHidden());
         toggleOutlineAction->setChecked(!m_outlineDock->isHidden());
         toggleGitScmAction->setChecked(!m_gitscmDock->isHidden());
+        toggleAiChatAction->setChecked(!m_aiDock->isHidden());
         toggleTerminalAction->setChecked(!m_terminalDock->isHidden());
         toggleProblemsAction->setChecked(!m_problemsDock->isHidden());
         toggleStatusBarAction->setChecked(statusBar()->isVisible());

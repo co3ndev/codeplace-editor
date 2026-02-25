@@ -11,6 +11,7 @@
 #include "browser/file_browser_sidebar.h"
 #include "terminal/terminal_widget.h"
 #include "lspclient/problems_widget.h"
+#include "ai/ai_chat_sidebar.h"
 class QDockWidget;
 
 namespace Main {
@@ -67,6 +68,9 @@ private:
     QDockWidget *m_searchDock;
     QDockWidget *m_outlineDock;
     QDockWidget *m_gitscmDock;
+    QDockWidget *m_aiDock;
+
+    AiChatSidebar *m_aiSidebar;
 
     
     QMap<QString, QAction*> m_actionMap;

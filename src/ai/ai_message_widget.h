@@ -4,9 +4,12 @@
 #include <QWidget>
 #include <QTextBrowser>
 #include <QPushButton>
+#include <QVBoxLayout>
+#include <QTimer>
 
 class QLabel;
 class QHBoxLayout;
+class QResizeEvent;
 
 class AiMessageWidget : public QWidget {
     Q_OBJECT
@@ -27,7 +30,7 @@ private slots:
     void updateSpinner();
 
 private:
-    QTextBrowser *m_textBrowser;
+    QVBoxLayout *m_contentLayout;
     QHBoxLayout *m_headerLayout;
     QLabel *m_nameLabel;
     QString m_rawText;
@@ -38,6 +41,10 @@ private:
     QTimer *m_spinnerTimer;
     
     void setupUi();
+    void clearContentLayout();
+    void addTextPart(const QString &text);
+    void addCodePart(const QString &code, const QString &lang);
+    QTextBrowser* createTextBrowser();
 };
 
 #endif // AI_MESSAGE_WIDGET_H

@@ -32,6 +32,18 @@ public:
 
     QString shortcut(const QString &actionName, const QString &defaultShortcut = QString()) const;
     void setShortcut(const QString &actionName, const QString &shortcut);
+
+    QString aiProvider() const;
+    void setAiProvider(const QString &provider);
+
+    QString aiOpenRouterKey() const;
+    void setAiOpenRouterKey(const QString &key);
+
+    QString aiLocalUrl() const;
+    void setAiLocalUrl(const QString &url);
+
+    QString aiSelectedModel() const;
+    void setAiSelectedModel(const QString &model);
 signals:
     void settingsChanged(const QString &key);
 

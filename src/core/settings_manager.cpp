@@ -59,4 +59,36 @@ QString SettingsManager::shortcut(const QString &actionName, const QString &defa
 void SettingsManager::setShortcut(const QString &actionName, const QString &shortcut) {
     setValue("shortcuts/" + actionName, shortcut);
 }
+
+QString SettingsManager::aiProvider() const {
+    return value("ai/provider", "OpenRouter").toString();
+}
+
+void SettingsManager::setAiProvider(const QString &provider) {
+    setValue("ai/provider", provider);
+}
+
+QString SettingsManager::aiOpenRouterKey() const {
+    return value("ai/openrouter_key", "").toString();
+}
+
+void SettingsManager::setAiOpenRouterKey(const QString &key) {
+    setValue("ai/openrouter_key", key);
+}
+
+QString SettingsManager::aiLocalUrl() const {
+    return value("ai/local_url", "http://localhost:11434/v1").toString();
+}
+
+void SettingsManager::setAiLocalUrl(const QString &url) {
+    setValue("ai/local_url", url);
+}
+
+QString SettingsManager::aiSelectedModel() const {
+    return value("ai/selected_model", "").toString();
+}
+
+void SettingsManager::setAiSelectedModel(const QString &model) {
+    setValue("ai/selected_model", model);
+}
 } 

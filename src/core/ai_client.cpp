@@ -36,7 +36,15 @@ void AiClient::fetchModels(const QString &baseUrl, const QString &apiKey) {
             }
             emit modelsFetched(models);
         } else {
-            emit errorOccurred(reply->errorString());
+            QByteArray data = reply->readAll();
+            QJsonDocument doc = QJsonDocument::fromJson(data);
+            if (doc.isObject() && doc.object().contains("error")) {
+                QJsonObject errorObj = doc.object()["error"].toObject();
+                QString msg = errorObj.contains("message") ? errorObj["message"].toString() : reply->errorString();
+                emit errorOccurred(msg);
+            } else {
+                emit errorOccurred(reply->errorString());
+            }
         }
         reply->deleteLater();
     });
@@ -71,7 +79,15 @@ void AiClient::sendChatRequest(const QString &baseUrl, const QString &apiKey, co
                 emit errorOccurred("Invalid JSON response");
             }
         } else {
-            emit errorOccurred(reply->errorString());
+            QByteArray data = reply->readAll();
+            QJsonDocument doc = QJsonDocument::fromJson(data);
+            if (doc.isObject() && doc.object().contains("error")) {
+                QJsonObject errorObj = doc.object()["error"].toObject();
+                QString msg = errorObj.contains("message") ? errorObj["message"].toString() : reply->errorString();
+                emit errorOccurred(msg);
+            } else {
+                emit errorOccurred(reply->errorString());
+            }
         }
         reply->deleteLater();
     });

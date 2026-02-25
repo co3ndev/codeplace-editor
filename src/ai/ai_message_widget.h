@@ -14,6 +14,7 @@ public:
     explicit AiMessageWidget(QWidget *parent = nullptr);
 
     void setMessage(const QString &text, bool isUser);
+    void setError(const QString &text);
     void setLoading(bool loading);
     void applyTheme();
 
@@ -32,6 +33,7 @@ private:
     QString m_rawText;
     bool m_isUser;
     bool m_isLoading;
+    bool m_isError;
     int m_spinnerStep;
     QTimer *m_spinnerTimer;
     

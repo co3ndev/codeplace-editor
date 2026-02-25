@@ -17,6 +17,7 @@ AiMessageWidget::AiMessageWidget(QWidget *parent)
     : QWidget(parent)
     , m_isUser(false)
     , m_isLoading(false)
+    , m_isError(false)
     , m_spinnerStep(0)
 {
     m_spinnerTimer = new QTimer(this);
@@ -56,6 +57,7 @@ void AiMessageWidget::setupUi() {
 
 void AiMessageWidget::setMessage(const QString &text, bool isUser) {
     setLoading(false);
+    m_isError = false;
     m_isUser = isUser;
     m_rawText = text;
     
@@ -84,9 +86,30 @@ void AiMessageWidget::setMessage(const QString &text, bool isUser) {
     }
 }
 
+void AiMessageWidget::setError(const QString &text) {
+    setLoading(false);
+    m_isError = true;
+    m_isUser = false;
+    m_rawText = text;
+    
+    m_nameLabel->setText("Error");
+    
+    updateStyleSheet();
+    m_textBrowser->setMarkdown(text);
+    
+    QTimer::singleShot(50, this, &AiMessageWidget::adjustHeight);
+    
+    m_headerLayout->setDirection(QBoxLayout::LeftToRight);
+    if (auto *vbox = qobject_cast<QVBoxLayout*>(layout())) {
+        vbox->setAlignment(m_textBrowser, Qt::AlignLeft);
+    }
+    layout()->setContentsMargins(10, 5, 50, 10);
+}
+
 void AiMessageWidget::setLoading(bool loading) {
     m_isLoading = loading;
     if (loading) {
+        m_isError = false;
         m_isUser = false;
         m_nameLabel->setText("AI");
         m_headerLayout->setDirection(QBoxLayout::LeftToRight);
@@ -180,6 +203,9 @@ void AiMessageWidget::updateStyleSheet() {
         bg = tm.getColor(Core::ThemeManager::SelectionBackground);
         // Ensure contrast for text on selection background
         fg = (bg.lightness() > 140) ? QColor("#000000") : QColor("#ffffff");
+    } else if (m_isError) {
+        bg = QColor(255, 0, 0, 40); // Subtle red
+        fg = QColor("#ff4c4c"); // Brighter red for text
     } else {
         bg = tm.getColor(Core::ThemeManager::LineHighlight);
         fg = tm.getColor(Core::ThemeManager::EditorForeground);
@@ -195,12 +221,19 @@ void AiMessageWidget::updateStyleSheet() {
     
     m_textBrowser->document()->setDefaultStyleSheet(docCss);
 
+    QString borderCss;
+    if (m_isError) {
+        borderCss = QString("1px solid #ff4c4c");
+    } else {
+        borderCss = QString("1px solid %1").arg(bg.darker(110).name());
+    }
+
     m_textBrowser->setStyleSheet(
         QString("QTextBrowser {"
         "  background-color: %1;"
         "  color: %2;"
         "  border-radius: 12px;"
-        "  border: 1px solid %3;"
-        "}").arg(bg.name(QColor::HexArgb), fg.name(QColor::HexArgb), bg.darker(110).name())
+        "  border: %3;"
+        "}").arg(bg.name(QColor::HexArgb), fg.name(QColor::HexArgb), borderCss)
     );
 }

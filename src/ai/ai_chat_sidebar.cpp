@@ -354,8 +354,14 @@ void AiChatSidebar::onSendClicked() {
 
     // Prepare Payload
     auto &settings = Core::SettingsManager::instance();
+    QString model = settings.aiSelectedModel();
+    if (model.isEmpty()) {
+        addMessage("", false)->setError("No model selected. Please go to Preferences > AI and select a model.");
+        return;
+    }
+
     QJsonObject payload;
-    payload["model"] = settings.aiSelectedModel();
+    payload["model"] = model;
     payload["stream"] = false;
 
     QJsonArray messages;
@@ -403,10 +409,10 @@ void AiChatSidebar::onAiErrorOccurred(const QString &error) {
     
     QString errorMsg = "Error: " + error;
     if (m_pendingMessage) {
-        m_pendingMessage->setMessage(errorMsg, false);
+        m_pendingMessage->setError(errorMsg);
         m_pendingMessage = nullptr;
     } else {
-        addMessage(errorMsg, false);
+        addMessage("", false)->setError(errorMsg);
     }
 }
 

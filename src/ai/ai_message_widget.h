@@ -14,6 +14,7 @@ public:
     explicit AiMessageWidget(QWidget *parent = nullptr);
 
     void setMessage(const QString &text, bool isUser);
+    void setLoading(bool loading);
     void applyTheme();
 
 protected:
@@ -22,6 +23,7 @@ protected:
 private slots:
     void updateStyleSheet();
     void adjustHeight();
+    void updateSpinner();
 
 private:
     QTextBrowser *m_textBrowser;
@@ -29,6 +31,9 @@ private:
     QLabel *m_nameLabel;
     QString m_rawText;
     bool m_isUser;
+    bool m_isLoading;
+    int m_spinnerStep;
+    QTimer *m_spinnerTimer;
     
     void setupUi();
 };

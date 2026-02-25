@@ -315,7 +315,7 @@ bool AiChatSidebar::eventFilter(QObject *obj, QEvent *event) {
     return QWidget::eventFilter(obj, event);
 }
 
-void AiChatSidebar::addMessage(const QString &text, bool isUser) {
+AiMessageWidget* AiChatSidebar::addMessage(const QString &text, bool isUser) {
     auto *msg = new AiMessageWidget(this);
     msg->setMessage(text, isUser);
     
@@ -323,9 +323,10 @@ void AiChatSidebar::addMessage(const QString &text, bool isUser) {
     m_historyLayout->insertWidget(m_historyLayout->count() - 1, msg);
     
     // Scroll to bottom after layout update
-    QTimer::singleShot(100, this, [this]() {
+    QTimer::singleShot(50, this, [this]() {
         m_scrollArea->verticalScrollBar()->setValue(m_scrollArea->verticalScrollBar()->maximum());
     });
+    return msg;
 }
 
 void AiChatSidebar::onSendClicked() {
@@ -376,19 +377,37 @@ void AiChatSidebar::onSendClicked() {
 
     m_sendButton->setEnabled(false);
     m_sendButton->setText("Thinking...");
+    
+    // Create pending message with loading spinner
+    m_pendingMessage = addMessage("", false);
+    m_pendingMessage->setLoading(true);
+
     m_aiClient->sendChatRequest(baseUrl, apiKey, payload);
 }
 
 void AiChatSidebar::onAiResponseReceived(const QString &message) {
     m_sendButton->setEnabled(true);
     m_sendButton->setText("Send");
-    addMessage(message, false);
+    
+    if (m_pendingMessage) {
+        m_pendingMessage->setMessage(message, false);
+        m_pendingMessage = nullptr;
+    } else {
+        addMessage(message, false);
+    }
 }
 
 void AiChatSidebar::onAiErrorOccurred(const QString &error) {
     m_sendButton->setEnabled(true);
     m_sendButton->setText("Send");
-    addMessage("Error: " + error, false);
+    
+    QString errorMsg = "Error: " + error;
+    if (m_pendingMessage) {
+        m_pendingMessage->setMessage(errorMsg, false);
+        m_pendingMessage = nullptr;
+    } else {
+        addMessage(errorMsg, false);
+    }
 }
 
 void AiChatSidebar::onContextClicked() {

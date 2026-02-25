@@ -11,13 +11,14 @@
 namespace Editor { class TabContainer; }
 
 class AiClient;
+class AiMessageWidget;
 
 class AiChatSidebar : public QWidget {
     Q_OBJECT
 public:
     explicit AiChatSidebar(QWidget *parent = nullptr);
 
-    void addMessage(const QString &text, bool isUser);
+    AiMessageWidget* addMessage(const QString &text, bool isUser);
     void applyTheme();
     void setTabContainer(Editor::TabContainer *container);
 
@@ -52,6 +53,7 @@ private:
 
     Editor::TabContainer *m_tabContainer = nullptr;
     AiClient *m_aiClient;
+    AiMessageWidget *m_pendingMessage = nullptr;
     QList<QString> m_attachedFiles;
     QList<QString> m_attachedSnippets;
 

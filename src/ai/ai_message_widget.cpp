@@ -13,7 +13,15 @@
 #include <QTextDocument>
 #include "../core/theme_manager.h"
 
-AiMessageWidget::AiMessageWidget(QWidget *parent) : QWidget(parent), m_isUser(false) {
+AiMessageWidget::AiMessageWidget(QWidget *parent) 
+    : QWidget(parent)
+    , m_isUser(false)
+    , m_isLoading(false)
+    , m_spinnerStep(0)
+{
+    m_spinnerTimer = new QTimer(this);
+    connect(m_spinnerTimer, &QTimer::timeout, this, &AiMessageWidget::updateSpinner);
+
     setupUi();
     connect(&Core::ThemeManager::instance(), &Core::ThemeManager::themeChanged, this, &AiMessageWidget::applyTheme);
     applyTheme();
@@ -47,6 +55,7 @@ void AiMessageWidget::setupUi() {
 }
 
 void AiMessageWidget::setMessage(const QString &text, bool isUser) {
+    setLoading(false);
     m_isUser = isUser;
     m_rawText = text;
     
@@ -62,13 +71,51 @@ void AiMessageWidget::setMessage(const QString &text, bool isUser) {
     
     if (isUser) {
         m_headerLayout->setDirection(QBoxLayout::RightToLeft);
-        static_cast<QVBoxLayout*>(layout())->setAlignment(m_textBrowser, Qt::AlignRight);
+        if (auto *vbox = qobject_cast<QVBoxLayout*>(layout())) {
+            vbox->setAlignment(m_textBrowser, Qt::AlignRight);
+        }
         layout()->setContentsMargins(50, 5, 10, 10);
     } else {
         m_headerLayout->setDirection(QBoxLayout::LeftToRight);
-        static_cast<QVBoxLayout*>(layout())->setAlignment(m_textBrowser, Qt::AlignLeft);
+        if (auto *vbox = qobject_cast<QVBoxLayout*>(layout())) {
+            vbox->setAlignment(m_textBrowser, Qt::AlignLeft);
+        }
         layout()->setContentsMargins(10, 5, 50, 10);
     }
+}
+
+void AiMessageWidget::setLoading(bool loading) {
+    m_isLoading = loading;
+    if (loading) {
+        m_isUser = false;
+        m_nameLabel->setText("AI");
+        m_headerLayout->setDirection(QBoxLayout::LeftToRight);
+        if (auto *vbox = qobject_cast<QVBoxLayout*>(layout())) {
+            vbox->setAlignment(m_textBrowser, Qt::AlignLeft);
+        }
+        layout()->setContentsMargins(10, 5, 50, 10);
+        
+        updateStyleSheet();
+        m_spinnerStep = 0;
+        updateSpinner();
+        m_spinnerTimer->start(100);
+    } else {
+        m_spinnerTimer->stop();
+    }
+}
+
+void AiMessageWidget::updateSpinner() {
+    if (!m_isLoading) return;
+
+    static const QStringList spinnerFrames = {
+        "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"
+    };
+    
+    QString frame = spinnerFrames[m_spinnerStep % spinnerFrames.size()];
+    m_spinnerStep++;
+    
+    m_textBrowser->setHtml(QString("<div style='color: gray; font-style: italic;'><span style='font-family: monospace;'>%1</span> Generating response...</div>").arg(frame));
+    adjustHeight();
 }
 
 void AiMessageWidget::adjustHeight() {

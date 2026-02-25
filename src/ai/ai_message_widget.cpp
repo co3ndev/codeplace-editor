@@ -393,7 +393,8 @@ void AiMessageWidget::clearContentLayout() {
     while (m_contentLayout->count() > 0) {
         QLayoutItem *item = m_contentLayout->takeAt(0);
         if (item->widget()) {
-            item->widget()->deleteLater();
+            item->widget()->setParent(nullptr);
+            delete item->widget();  // immediate delete is safer here
         }
         delete item;
     }

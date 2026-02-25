@@ -11,6 +11,7 @@
 #include <QTabWidget>
 #include <QTableWidget>
 #include <QLabel>
+#include <QJsonObject>
 #include "lspclient/lspclient_widget.h"
 
 class AiClient;
@@ -34,7 +35,7 @@ private slots:
     // AI Slots
     void onAiProviderChanged(int index);
     void onAiFetchModelsClicked();
-    void onAiModelsReceived(const QStringList &models);
+    void onAiModelsReceived(const QList<QJsonObject> &models);
 
 private:
     QTabWidget *tabWidget;

@@ -13,6 +13,7 @@
 #include <QInputDialog>
 #include <QTimer>
 #include <QCompleter>
+#include <QAbstractItemView>
 
 namespace Main {
 
@@ -152,6 +153,7 @@ void PreferencesDialog::setupAiTab() {
     aiModelCombo->setInsertPolicy(QComboBox::NoInsert);
     aiModelCombo->completer()->setFilterMode(Qt::MatchContains);
     aiModelCombo->setMinimumWidth(300);
+    aiModelCombo->view()->setMinimumWidth(500);
     formLayout->addRow("Selected Model:", aiModelCombo);
 
     aiFetchModelsButton = new QPushButton("Fetch Models");
@@ -256,12 +258,33 @@ void PreferencesDialog::onAiFetchModelsClicked() {
     aiClient->fetchModels(baseUrl, apiKey);
 }
 
-void PreferencesDialog::onAiModelsReceived(const QStringList &models) {
-    QString currentModel = aiModelCombo->currentText();
+void PreferencesDialog::onAiModelsReceived(const QList<QJsonObject> &models) {
+    QString currentModel = aiModelCombo->currentData().toString();
+    if (currentModel.isEmpty()) currentModel = aiModelCombo->currentText();
+
     aiModelCombo->clear();
-    aiModelCombo->addItems(models);
     
-    if (models.contains(currentModel)) {
+    for (const QJsonObject &model : models) {
+        QString id = model["id"].toString();
+        QString displayName = id;
+        
+        QJsonObject pricing = model["pricing"].toObject();
+        if (!pricing.isEmpty()) {
+            double prompt = pricing["prompt"].toString().toDouble() * 1000000.0;
+            double completion = pricing["completion"].toString().toDouble() * 1000000.0;
+            displayName += QString(" (In: $%1/M, Out: $%2/M)")
+                .arg(prompt, 0, 'f', 2)
+                .arg(completion, 0, 'f', 2);
+        }
+        
+        aiModelCombo->addItem(displayName, id);
+    }
+    
+    // Restore selection
+    int index = aiModelCombo->findData(currentModel);
+    if (index != -1) {
+        aiModelCombo->setCurrentIndex(index);
+    } else {
         aiModelCombo->setCurrentText(currentModel);
     }
     
@@ -307,7 +330,10 @@ void PreferencesDialog::saveAndClose() {
     settings.setAiProvider(aiProviderCombo->currentText());
     settings.setAiOpenRouterKey(aiOpenRouterKeyEdit->text());
     settings.setAiLocalUrl(aiLocalUrlEdit->text());
-    settings.setAiSelectedModel(aiModelCombo->currentText());
+    
+    QString selectedModel = aiModelCombo->currentData().toString();
+    if (selectedModel.isEmpty()) selectedModel = aiModelCombo->currentText();
+    settings.setAiSelectedModel(selectedModel);
     
     
     for (auto it = shortcutMap.begin(); it != shortcutMap.end(); ++it) {

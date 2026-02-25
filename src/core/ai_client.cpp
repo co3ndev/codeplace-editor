@@ -25,13 +25,12 @@ void AiClient::fetchModels(const QString &baseUrl, const QString &apiKey) {
         if (reply->error() == QNetworkReply::NoError) {
             QByteArray data = reply->readAll();
             QJsonDocument doc = QJsonDocument::fromJson(data);
-            QStringList models;
+            QList<QJsonObject> models;
             if (doc.isObject()) {
                 QJsonArray dataArray = doc.object()["data"].toArray();
                 for (const QJsonValue &value : dataArray) {
-                    QString id = value.toObject()["id"].toString();
-                    if (!id.isEmpty()) {
-                        models << id;
+                    if (value.isObject()) {
+                        models << value.toObject();
                     }
                 }
             }

@@ -18,7 +18,7 @@ public:
     void sendChatRequest(const QString &baseUrl, const QString &apiKey, const QJsonObject &payload);
 
 signals:
-    void modelsFetched(const QStringList &models);
+    void modelsFetched(const QList<QJsonObject> &models);
     void responseReceived(const QString &message);
     void errorOccurred(const QString &error);
 

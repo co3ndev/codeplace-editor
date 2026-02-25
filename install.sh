@@ -35,7 +35,7 @@ done
 
 # Qt6 development packages and system glue libraries
 QT6_DEPS=(
-    "qt6-base-dev" "qt6-tools-dev" "qt6-wayland" "qt6-qpa-plugins"
+    "qt6-base-dev" "qt6-tools-dev" "qt6-svg-dev" "qt6-wayland" "qt6-qpa-plugins"
     "libxkbcommon-x11-0" "libxkbcommon-dev" "libgl1-mesa-dev"
     "libxcb-cursor0" "libxcb-icccm4" "libxcb-keysyms1" "libxcb-shape0"
     "libxcb-xinerama0" "libxcb-xinput0" "libxcb-randr0" "libxcb-image0"
@@ -71,9 +71,10 @@ make -j$(nproc)
 echo "Installing..."
 sudo make install
 
-# Update desktop database
-echo "Updating desktop database..."
+# Update desktop database and icon cache
+echo "Updating desktop database and icon cache..."
 sudo update-desktop-database 2>/dev/null || true
+sudo gtk-update-icon-cache -f -t /usr/local/share/icons/hicolor 2>/dev/null || true
 
 echo "------------------------------------------"
 echo "Build and installation complete!"

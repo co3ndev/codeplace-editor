@@ -26,7 +26,7 @@ check_and_install() {
 MISSING_DEPS=()
 # Qt6 runtime packages and system glue libraries
 QT6_RUNTIME=(
-    "libqt6widgets6" "libqt6gui6" "libqt6core6" "libqt6network6" "libqt6concurrent6"
+    "libqt6widgets6" "libqt6gui6" "libqt6core6" "libqt6network6" "libqt6concurrent6" "libqt6svg6"
     "qt6-wayland" "qt6-qpa-plugins" "libxkbcommon-x11-0" "libxkbcommon0" "libgl1"
     "libxcb-cursor0" "libxcb-icccm4" "libxcb-keysyms1" "libxcb-shape0"
     "libxcb-xinerama0" "libxcb-xinput0" "libxcb-randr0" "libxcb-image0"
@@ -79,9 +79,10 @@ if [ -f "share/icons/hicolor/512x512/apps/codeplace.png" ]; then
     sudo cp share/icons/hicolor/512x512/apps/codeplace.png "$INSTALL_PREFIX/share/icons/hicolor/512x512/apps/"
 fi
 
-# Update desktop database
-echo "Updating desktop database..."
+# Update desktop database and icon cache
+echo "Updating desktop database and icon cache..."
 sudo update-desktop-database 2>/dev/null || true
+sudo gtk-update-icon-cache -f -t "$INSTALL_PREFIX/share/icons/hicolor" 2>/dev/null || true
 
 echo "------------------------------------------"
 echo "Installation successful! You can now launch 'codeplace' from your terminal or application menu."

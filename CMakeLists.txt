@@ -197,7 +197,7 @@ set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 # Additional runtime dependencies for plugins that are not automatically detected
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-qpa-plugins, qt6-wayland, libxkbcommon-x11-0")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-qpa-plugins, qt6-wayland, libxkbcommon-x11-0, libqt6svg6")
 
 set(CPACK_STRIP_FILES TRUE)
 

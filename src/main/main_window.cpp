@@ -506,12 +506,11 @@ void MainWindow::createMenus() {
     
     QMenu *helpMenu = menuBar()->addMenu("&Help");
     helpMenu->addAction("&About", [this]() {
-        QMessageBox::about(this, "About CodePlace Editor",
-            "CodePlace Editor\n"
-            "Version: 0.2.0\n\n"
-            "A modern, fast, and lightweight code editor.\n"
-            "Developed by Michael Coen.\n"
-            "https://github.com/co3ndev/codeplace-editor" );
+        QMessageBox about(this);
+        about.setWindowTitle("About CodePlace Editor");
+        about.setText("<b>CodePlace Editor</b><br>Version: 0.2.0<br><br>A modern, fast, and lightweight code editor.<br>Developed by Michael Coen.<br><a href='https://github.com/co3ndev/codeplace-editor'>https://github.com/co3ndev/codeplace-editor</a>");
+        about.setIconPixmap(QIcon(":/resources/codeplace.png").pixmap(64, 64));
+        about.exec();
     });
 
     

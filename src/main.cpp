@@ -49,8 +49,9 @@ int main(int argc, char *argv[]) {
     }
 
     QApplication app(argc, argv);
-    app.setApplicationName("CodePlaceEditor");
+    app.setApplicationName("codeplace");
     app.setApplicationDisplayName("CodePlace Editor");
+    app.setDesktopFileName("codeplace");
     app.setOrganizationName("CodePlace");
     app.setOrganizationDomain("https://codeplace.net");
     app.setApplicationVersion("0.2.0");

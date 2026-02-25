@@ -10,6 +10,7 @@ Ensure you have the following packages installed (Ubuntu/Debian):
 - `libqt6core6`
 - `libqt6network6`
 - `libqt6concurrent6`
+- `libqt6svg6`
 
 ### Installation Steps
 

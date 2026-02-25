@@ -55,7 +55,7 @@ Before building, make sure you have:
 
 On Ubuntu/Debian:
 ```bash
-sudo apt-get install cmake qt6-base-dev qt6-tools-dev build-essential
+sudo apt-get install cmake qt6-base-dev qt6-tools-dev qt6-svg-dev build-essential
 ```
 
 ## Building from source

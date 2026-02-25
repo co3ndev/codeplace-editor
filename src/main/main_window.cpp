@@ -48,8 +48,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     }
     if (!state.windowState.isEmpty()) restoreState(state.windowState);
     
-    setCorner(Qt::BottomLeftCorner, Qt::BottomDockWidgetArea);
-    setCorner(Qt::BottomRightCorner, Qt::BottomDockWidgetArea);
+    setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
+    setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
 
     applySettings();
 

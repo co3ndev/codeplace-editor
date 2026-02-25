@@ -74,8 +74,10 @@ void TerminalWidget::setWorkingDirectory(const QString &dir) {
     m_workingDirectory = cleanDir;
 
     if (m_pty && m_pty->isRunning()) {
-        // Use a leading space to prevent the command from being recorded in shell history
-        sendInput(QString(" cd \"%1\"\n").arg(m_workingDirectory));
+        // Escape single quotes for safe shell usage: replace ' with '\''
+        QString escaped = m_workingDirectory;
+        escaped.replace("'", "'\\''");
+        sendInput(QString(" cd '%1'\n").arg(escaped));
     }
 }
 

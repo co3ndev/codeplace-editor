@@ -37,14 +37,13 @@ public:
         label->setStyleSheet("font-size: 11px;");
         layout->addWidget(label);
 
-        auto *closeBtn = new QToolButton(this);
-        closeBtn->setText("×");
-        closeBtn->setCursor(Qt::PointingHandCursor);
-        closeBtn->setAutoRaise(true);
-        closeBtn->setStyleSheet("QToolButton { border: none; font-weight: bold; font-size: 14px; } QToolButton:hover { color: red; }");
-        layout->addWidget(closeBtn);
+        m_closeBtn = new QToolButton(this);
+        m_closeBtn->setText("×");
+        m_closeBtn->setCursor(Qt::PointingHandCursor);
+        m_closeBtn->setAutoRaise(true);
+        layout->addWidget(m_closeBtn);
 
-        connect(closeBtn, &QToolButton::clicked, [this, filePath]() {
+        connect(m_closeBtn, &QToolButton::clicked, [this, filePath]() {
             emit removed(filePath);
         });
 
@@ -58,11 +57,20 @@ public:
         bgColor = bgColor.lightness() > 128 ? bgColor.darker(110) : bgColor.lighter(130);
         QColor borderColor = tm.getColor(Core::ThemeManager::FindBarBorder);
         QColor textColor = tm.getColor(Core::ThemeManager::EditorForeground);
+        QColor errorColor = tm.getColor(Core::ThemeManager::DiagnosticError);
 
         setStyleSheet(QString(
             "#contextChip { background-color: %1; border: 1px solid %2; border-radius: 10px; color: %3; }"
         ).arg(bgColor.name()).arg(borderColor.name()).arg(textColor.name()));
+
+        m_closeBtn->setStyleSheet(QString(
+            "QToolButton { border: none; font-weight: bold; font-size: 14px; color: %1; } "
+            "QToolButton:hover { color: %2; }"
+        ).arg(textColor.name()).arg(errorColor.name()));
     }
+
+private:
+    QToolButton *m_closeBtn;
 
 signals:
     void removed(const QString &filePath);

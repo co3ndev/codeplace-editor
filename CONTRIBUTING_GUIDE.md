@@ -1,6 +1,6 @@
 # Contributing to CodePlace Editor
 
-Thanks for your interest in contributing! CodePlace is a community-driven project and contributions of all kinds are welcome — whether that's fixing a bug, improving documentation, or proposing a new feature. This guide covers everything you need to get started.
+Thanks for your interest in contributing! CodePlace is a community-driven project and contributions of all kinds are welcome - whether that's fixing a bug, improving documentation, or proposing a new feature. This guide covers everything you need to get started.
 
 ---
 
@@ -14,7 +14,7 @@ If an issue already exists for what you want to work on, leave a comment so othe
 
 ## Setting Up Locally
 
-CodePlace is built from source using CMake and Qt6. The full setup instructions are in the [README](README.md) under **Getting Started** — follow those to get a working build on your machine before making any changes.
+CodePlace is built from source using CMake and Qt6. The full setup instructions are in the [README](README.md) under **Getting Started** - follow those to get a working build on your machine before making any changes.
 
 ---
 
@@ -24,9 +24,9 @@ CodePlace is built from source using CMake and Qt6. The full setup instructions 
 
 Fork the repository and create a branch off `main` for your work. Branch names should follow this convention:
 
-- `feature/short-description` — for new functionality
-- `fix/short-description` — for bug fixes
-- `docs/short-description` — for documentation changes
+- `feature/short-description` - for new functionality
+- `fix/short-description` - for bug fixes
+- `docs/short-description` - for documentation changes
 
 Keep branch names lowercase and use hyphens instead of spaces.
 
@@ -42,8 +42,8 @@ There's no enforced formatter or strict style guide, but please try to match the
 
 Write clear, descriptive commit messages. The subject line should summarize what the commit does, not what you changed. For example:
 
-- `Add session restore on startup` — good
-- `session_manager.cpp edits` — not helpful
+- `Add session restore on startup` - good
+- `session_manager.cpp edits` - not helpful
 
 ---
 
@@ -54,7 +54,7 @@ Write clear, descriptive commit messages. The subject line should summarize what
 3. Describe what you changed and why. If there's anything non-obvious about your approach, explain it.
 4. Commits will be squashed on merge, so don't worry about keeping a perfectly clean commit history during development.
 
-We'll review your PR as soon as we can. We may leave feedback or ask questions — please don't take this as discouragement, it's just part of the process.
+We'll review your PR as soon as we can. We may leave feedback or ask questions - please don't take this as discouragement, it's just part of the process.
 
 ---
 

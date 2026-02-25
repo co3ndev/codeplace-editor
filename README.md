@@ -16,7 +16,7 @@ A lightweight, fast code editor built with C++ and Qt. Whether you're working on
 | Feature | Description |
 |---|---|
 | **File Browser** | Browse your files and folders. |
-| **Session Management** | Automatically save and restore your editing sessions. Pick up right where you left off. |
+| **Session Management** | Automatically save and restore your editing sessions. |
 | **Theme Management** | Choose from multiple themes or create your own using QSS (Qt Style Sheets). |
 | **Syntax Highlighting** | Support for 23 programming languages and file formats. |
 | **Multi-Tab Editing** | Work with multiple files simultaneously using an intuitive tab interface. |
@@ -44,7 +44,7 @@ CodePlace supports syntax highlighting and LSP integration across a wide range o
 
 ### Prerequisites
 
-**Note:** CodePlace is built and tested on Linux. It works perfectly on native Linux distros and WSL2. We don't support macOS or native Windows right now—it's just easier to focus on doing one platform really well.
+**Note:** CodePlace is built and tested on Linux/WSL2. We don't support macOS or native Windows right now. It's just easier to focus on doing one platform really well.
 
 Before building, make sure you have:
 
@@ -129,7 +129,7 @@ For more help, view our [Issues](https://github.com/co3ndev/codeplace-editor/iss
 
 ## Contributing
 
-We welcome contributions from the community — bug reports/fixes, new features, documentation improvements, whatever you're up for. See the [Contribution Guide](CONTRIBUTING_GUIDE.md) to get started.
+We welcome contributions from the community: bug reports/fixes, new features, documentation improvements, whatever you're up for. See the [Contribution Guide](CONTRIBUTING_GUIDE.md) to get started.
 
 ---
 
@@ -148,8 +148,8 @@ Please base your contributions on the `testing` branch when possible.
 
 A few things we're actively working on:
 
-- **Plugin system** *(high priority)* — extend the editor with custom functionality.
-- **Internal AI chat** — a focused tool for documentation and code referencing. Generative AI is not planned to be a core pillar of this editor.
+- **Plugin system** *(high priority)* - extend the editor with custom functionality.
+- **Internal AI chat** - a focused tool for documentation and code referencing. Generative AI is not planned to be a core pillar of this editor.
 
 Have a feature request? [Open an issue](https://github.com/co3ndev/codeplace-editor/issues). CodePlace is meant to be a tool for developers, by developers.
 

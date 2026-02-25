@@ -17,18 +17,14 @@ public:
     void applyTheme();
 
 protected:
-    void enterEvent(QEnterEvent *event) override;
-    void leaveEvent(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 
 private slots:
-    void onCopyClicked();
     void updateStyleSheet();
     void adjustHeight();
 
 private:
     QTextBrowser *m_textBrowser;
-    QPushButton *m_copyButton;
     QHBoxLayout *m_headerLayout;
     QLabel *m_nameLabel;
     QString m_rawText;

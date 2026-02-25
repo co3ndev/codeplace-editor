@@ -337,6 +337,12 @@ void AiChatSidebar::onSendClicked() {
 
     // Assemble Prompt
     QString context = getFullContext();
+    
+    const int maxContextLength = 100000;
+    if (context.length() > maxContextLength) {
+        context = context.left(maxContextLength) + "\n\n[Context truncated due to length limits]\n";
+    }
+
     QString systemPrompt = "You are an AI assistant built into CodePlace Editor. Your goal is to help the user with their code. You cannot edit files directly. Use the provided context to answer questions.";
     
     QString finalPrompt = context;

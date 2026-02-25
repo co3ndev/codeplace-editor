@@ -111,7 +111,6 @@ void AiMessageWidget::resizeEvent(QResizeEvent *event) {
 void AiMessageWidget::applyTheme() {
     auto &tm = Core::ThemeManager::instance();
     QColor fg = tm.getColor(Core::ThemeManager::EditorForeground);
-    QColor hoverBg = tm.getColor(Core::ThemeManager::LineHighlight);
     
     m_nameLabel->setStyleSheet(QString("font-weight: bold; font-size: 11px; color: %1;").arg(fg.name()));
     

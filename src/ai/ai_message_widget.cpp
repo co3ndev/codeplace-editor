@@ -14,6 +14,7 @@
 #include <QRegularExpression>
 #include <QFontDatabase>
 #include "../core/theme_manager.h"
+#include "../core/simple_highlighter.h"
 
 class CodeBlockWidget : public QWidget {
     Q_OBJECT
@@ -49,6 +50,12 @@ public:
         m_codeBrowser->setMarkdown(QString("```%1\n%2\n```").arg(lang, code));
         m_codeBrowser->setVisible(!m_isFolded);
         
+        // Setup syntax highlighting
+        auto langOpt = Core::SimpleHighlighter::languageForName(lang);
+        if (langOpt) {
+            new Core::SimpleHighlighter(m_codeBrowser->document(), *langOpt);
+        }
+
         mainLayout->addWidget(m_headerGroup);
         mainLayout->addWidget(m_codeBrowser);
 

@@ -32,6 +32,43 @@ std::optional<SimpleHighlighter::Language> SimpleHighlighter::languageForExtensi
     }
     return std::nullopt;
 }
+ 
+std::optional<SimpleHighlighter::Language> SimpleHighlighter::languageForName(const QString &name) {
+    QString n = name.toLower().trimmed();
+    if (n.isEmpty()) return std::nullopt;
+
+    static const QMap<QString, Language> nameMap = {
+        {"cpp", Lang_Cpp}, {"c++", Lang_Cpp}, {"c", Lang_Cpp},
+        {"python", Lang_Python}, {"py", Lang_Python},
+        {"rust", Lang_Rust}, {"rs", Lang_Rust},
+        {"go", Lang_Go}, {"golang", Lang_Go},
+        {"html", Lang_HTML}, {"htm", Lang_HTML},
+        {"css", Lang_CSS},
+        {"javascript", Lang_JS}, {"js", Lang_JS}, {"node", Lang_JS},
+        {"typescript", Lang_TypeScript}, {"ts", Lang_TypeScript},
+        {"java", Lang_Java},
+        {"csharp", Lang_CSharp}, {"cs", Lang_CSharp}, {"c#", Lang_CSharp},
+        {"ruby", Lang_Ruby}, {"rb", Lang_Ruby},
+        {"php", Lang_PHP},
+        {"bash", Lang_Shell}, {"sh", Lang_Shell}, {"shell", Lang_Shell}, {"zsh", Lang_Shell},
+        {"yaml", Lang_YAML}, {"yml", Lang_YAML},
+        {"json", Lang_JSON},
+        {"xml", Lang_XML},
+        {"sql", Lang_SQL},
+        {"markdown", Lang_Markdown}, {"md", Lang_Markdown},
+        {"lua", Lang_Lua},
+        {"kotlin", Lang_Kotlin}, {"kt", Lang_Kotlin},
+        {"swift", Lang_Swift},
+        {"dart", Lang_Dart},
+        {"perl", Lang_Perl}, {"pl", Lang_Perl}
+    };
+
+    auto it = nameMap.find(n);
+    if (it != nameMap.end()) return it.value();
+    
+    // Fallback to extension check if name doesn't match
+    return languageForExtension(n);
+}
 
 SimpleHighlighter::SimpleHighlighter(QTextDocument *parent, Language lang)
     : QSyntaxHighlighter(parent), m_lang(lang) {

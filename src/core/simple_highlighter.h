@@ -75,6 +75,7 @@ public:
     };
 
     static std::optional<Language> languageForExtension(const QString &ext);
+    static std::optional<Language> languageForName(const QString &name);
     static QVector<SymbolRule> getSymbolRules(Language lang);
 
     SimpleHighlighter(QTextDocument *parent, Language lang);

@@ -13,6 +13,11 @@ namespace Editor { class TabContainer; }
 class AiClient;
 class AiMessageWidget;
 
+struct AiChatMessage {
+    QString role; // "user" or "assistant"
+    QString content;
+};
+
 class AiChatSidebar : public QWidget {
     Q_OBJECT
 public:
@@ -38,6 +43,7 @@ private slots:
     void onContextClicked();
     void onAiResponseReceived(const QString &message);
     void onAiErrorOccurred(const QString &error);
+    void onNewChatClicked();
 
 private:
     QScrollArea *m_scrollArea;
@@ -46,6 +52,7 @@ private:
     QTextEdit *m_inputEdit;
     QPushButton *m_sendButton;
     QPushButton *m_contextButton;
+    QPushButton *m_newChatButton;
     QWidget *m_inputContainer;
     QWidget *m_chipsContainer;
     QHBoxLayout *m_chipsLayout;
@@ -56,9 +63,11 @@ private:
     AiMessageWidget *m_pendingMessage = nullptr;
     QList<QString> m_attachedFiles;
     QList<QString> m_attachedSnippets;
+    QList<AiChatMessage> m_chatHistory;
 
     void setupUi();
     void clearChips();
+    void clearHistory();
 };
 
 #endif // AI_CHAT_SIDEBAR_H

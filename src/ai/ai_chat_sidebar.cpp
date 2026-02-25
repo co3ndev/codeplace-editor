@@ -112,10 +112,12 @@ void AiChatSidebar::setupUi() {
 
     auto *buttonLayout = new QHBoxLayout();
     m_contextButton = new QPushButton("Add Context", this);
+    m_newChatButton = new QPushButton("New Chat", this);
     m_sendButton = new QPushButton("Send", this);
     m_sendButton->setDefault(true);
     
     buttonLayout->addWidget(m_contextButton);
+    buttonLayout->addWidget(m_newChatButton);
     buttonLayout->addStretch();
     buttonLayout->addWidget(m_sendButton);
     inputLayout->addLayout(buttonLayout);
@@ -124,6 +126,7 @@ void AiChatSidebar::setupUi() {
 
     connect(m_sendButton, &QPushButton::clicked, this, &AiChatSidebar::onSendClicked);
     connect(m_contextButton, &QPushButton::clicked, this, &AiChatSidebar::onContextClicked);
+    connect(m_newChatButton, &QPushButton::clicked, this, &AiChatSidebar::onNewChatClicked);
 
     // Chips Area
     m_chipsScrollArea = new QScrollArea(this);
@@ -295,11 +298,35 @@ void AiChatSidebar::removeAttachedFile(const QString &filePath) {
 
 // Better implementation using sender()
 void AiChatSidebar::clearChips() {
+    m_attachedFiles.clear();
+    m_attachedSnippets.clear();
     while (m_chipsLayout->count() > 1) { // Keep the stretch
         auto *item = m_chipsLayout->takeAt(0);
-        delete item->widget();
+        if (item->widget()) {
+            item->widget()->deleteLater();
+        }
         delete item;
     }
+    m_chipsScrollArea->hide();
+}
+
+void AiChatSidebar::clearHistory() {
+    m_chatHistory.clear();
+    // Keep the last item which is the stretch
+    while (m_historyLayout->count() > 1) {
+        auto *item = m_historyLayout->takeAt(0);
+        if (item->widget()) {
+            item->widget()->deleteLater();
+        }
+        delete item;
+    }
+}
+
+void AiChatSidebar::onNewChatClicked() {
+    clearHistory();
+    clearChips();
+    m_inputEdit->clear();
+    m_pendingMessage = nullptr;
 }
 
 bool AiChatSidebar::eventFilter(QObject *obj, QEvent *event) {
@@ -333,9 +360,6 @@ void AiChatSidebar::onSendClicked() {
     QString text = m_inputEdit->toPlainText().trimmed();
     if (text.isEmpty()) return;
 
-    addMessage(text, true);
-    m_inputEdit->clear();
-
     // Assemble Prompt
     QString context = getFullContext();
     
@@ -351,6 +375,11 @@ void AiChatSidebar::onSendClicked() {
         finalPrompt += "\n";
     }
     finalPrompt += "User Message: " + text;
+
+    addMessage(text, true);
+    m_chatHistory.append({"user", finalPrompt});
+    m_inputEdit->clear();
+    clearChips();
 
     // Prepare Payload
     auto &settings = Core::SettingsManager::instance();
@@ -370,10 +399,16 @@ void AiChatSidebar::onSendClicked() {
     systemMsg["content"] = systemPrompt;
     messages.append(systemMsg);
 
-    QJsonObject userMsg;
-    userMsg["role"] = "user";
-    userMsg["content"] = finalPrompt;
-    messages.append(userMsg);
+    // Provide the last 5 messages from history
+    int historyCount = m_chatHistory.size();
+    int startIdx = std::max(0, historyCount - 5);
+    
+    for (int i = startIdx; i < historyCount; ++i) {
+        QJsonObject msg;
+        msg["role"] = m_chatHistory[i].role;
+        msg["content"] = m_chatHistory[i].content;
+        messages.append(msg);
+    }
 
     payload["messages"] = messages;
 
@@ -401,6 +436,7 @@ void AiChatSidebar::onAiResponseReceived(const QString &message) {
     } else {
         addMessage(message, false);
     }
+    m_chatHistory.append({"assistant", message});
 }
 
 void AiChatSidebar::onAiErrorOccurred(const QString &error) {

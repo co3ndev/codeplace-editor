@@ -16,6 +16,7 @@ public:
 
     void fetchModels(const QString &baseUrl, const QString &apiKey);
     void sendChatRequest(const QString &baseUrl, const QString &apiKey, const QJsonObject &payload);
+    void abort();
 
 signals:
     void modelsFetched(const QList<QJsonObject> &models);
@@ -24,6 +25,7 @@ signals:
 
 private:
     QNetworkAccessManager *m_networkManager;
+    QNetworkReply *m_currentChatReply = nullptr;
 };
 
 #endif // AI_CLIENT_H

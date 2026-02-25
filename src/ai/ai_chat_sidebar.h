@@ -44,6 +44,10 @@ private slots:
     void onAiResponseReceived(const QString &message);
     void onAiErrorOccurred(const QString &error);
     void onNewChatClicked();
+    void onSettingsClicked();
+
+signals:
+    void settingsRequested();
 
 private:
     QScrollArea *m_scrollArea;
@@ -53,6 +57,7 @@ private:
     QPushButton *m_sendButton;
     QPushButton *m_contextButton;
     QPushButton *m_newChatButton;
+    QPushButton *m_settingsButton;
     QWidget *m_inputContainer;
     QWidget *m_chipsContainer;
     QHBoxLayout *m_chipsLayout;

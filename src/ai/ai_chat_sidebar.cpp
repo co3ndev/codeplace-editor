@@ -53,7 +53,6 @@ public:
     void applyTheme() {
         auto &tm = Core::ThemeManager::instance();
         QColor bgColor = tm.getColor(Core::ThemeManager::EditorBackground);
-        // Make it slightly different from background
         bgColor = bgColor.lightness() > 128 ? bgColor.darker(110) : bgColor.lighter(130);
         QColor borderColor = tm.getColor(Core::ThemeManager::FindBarBorder);
         QColor textColor = tm.getColor(Core::ThemeManager::EditorForeground);
@@ -91,7 +90,6 @@ void AiChatSidebar::setupUi() {
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // History Area
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
@@ -101,13 +99,11 @@ void AiChatSidebar::setupUi() {
     m_historyLayout = new QVBoxLayout(m_historyContainer);
     m_historyLayout->setAlignment(Qt::AlignTop);
     
-    // Add a stretch at the end to keep messages at the top if there aren't many
     m_historyLayout->addStretch();
     
     m_scrollArea->setWidget(m_historyContainer);
     mainLayout->addWidget(m_scrollArea, 1);
 
-    // Input Area
     m_inputContainer = new QWidget(this);
     auto *inputLayout = new QVBoxLayout(m_inputContainer);
     inputLayout->setContentsMargins(10, 10, 10, 10);
@@ -119,13 +115,17 @@ void AiChatSidebar::setupUi() {
     inputLayout->addWidget(m_inputEdit);
 
     auto *buttonLayout = new QHBoxLayout();
-    m_contextButton = new QPushButton("Add Context", this);
-    m_newChatButton = new QPushButton("New Chat", this);
+    buttonLayout->setSpacing(4);
+    m_contextButton = new QPushButton("Context", this);
+    m_newChatButton = new QPushButton("Clear", this);
+    m_settingsButton = new QPushButton("Settings", this);
+
     m_sendButton = new QPushButton("Send", this);
     m_sendButton->setDefault(true);
     
     buttonLayout->addWidget(m_contextButton);
     buttonLayout->addWidget(m_newChatButton);
+    buttonLayout->addWidget(m_settingsButton);
     buttonLayout->addStretch();
     buttonLayout->addWidget(m_sendButton);
     inputLayout->addLayout(buttonLayout);
@@ -135,8 +135,8 @@ void AiChatSidebar::setupUi() {
     connect(m_sendButton, &QPushButton::clicked, this, &AiChatSidebar::onSendClicked);
     connect(m_contextButton, &QPushButton::clicked, this, &AiChatSidebar::onContextClicked);
     connect(m_newChatButton, &QPushButton::clicked, this, &AiChatSidebar::onNewChatClicked);
+    connect(m_settingsButton, &QPushButton::clicked, this, &AiChatSidebar::onSettingsClicked);
 
-    // Chips Area
     m_chipsScrollArea = new QScrollArea(this);
     m_chipsScrollArea->setWidgetResizable(true);
     m_chipsScrollArea->setFrameShape(QFrame::NoFrame);
@@ -151,7 +151,7 @@ void AiChatSidebar::setupUi() {
     m_chipsLayout->addStretch();
 
     m_chipsScrollArea->setWidget(m_chipsContainer);
-    m_chipsScrollArea->hide(); // Hide initially until we have chips
+    m_chipsScrollArea->hide();
 
     inputLayout->insertWidget(0, m_chipsScrollArea);
 }
@@ -160,13 +160,11 @@ void AiChatSidebar::applyTheme() {
     auto &tm = Core::ThemeManager::instance();
     QColor borderColor = tm.getColor(Core::ThemeManager::FindBarBorder);
     
-    // Add a subtle border at the top of the input container
     m_inputContainer->setStyleSheet(
         QString("#inputContainer { border-top: 1px solid %1; }").arg(borderColor.name())
     );
     m_inputContainer->setObjectName("inputContainer");
 
-    // Update chips theme if any
     for (int i = 0; i < m_chipsLayout->count(); ++i) {
         if (auto *chip = qobject_cast<AiContextChip*>(m_chipsLayout->itemAt(i)->widget())) {
             chip->applyTheme();
@@ -179,14 +177,13 @@ void AiChatSidebar::setTabContainer(Editor::TabContainer *container) {
 }
 
 void AiChatSidebar::addAttachedFolder(const QString &folderPath) {
-    if (m_attachedFiles.contains(folderPath)) return; // Use same list for simplicity but mark as folder
+    if (m_attachedFiles.contains(folderPath)) return; 
     m_attachedFiles.append(folderPath);
     
     auto *chip = new AiContextChip(folderPath, m_chipsContainer);
-    // Maybe make folder chips look slightly different? Or just same is fine.
     
     m_chipsLayout->insertWidget(m_chipsLayout->count() - 1, chip);
-    connect(chip, &AiContextChip::removed, this, &AiChatSidebar::removeAttachedFile); // Re-use removeAttachedFile
+    connect(chip, &AiContextChip::removed, this, &AiChatSidebar::removeAttachedFile); 
     m_chipsScrollArea->show();
 }
 
@@ -197,7 +194,6 @@ void AiChatSidebar::removeAttachedFolder(const QString &folderPath) {
 QString AiChatSidebar::getFullContext() const {
     QString context;
 
-    // 1. Open Files
     if (m_tabContainer) {
         QStringList paths = m_tabContainer->openFilePaths();
         if (!paths.isEmpty()) {
@@ -213,7 +209,6 @@ QString AiChatSidebar::getFullContext() const {
         }
     }
 
-    // 2. Attached Files & Folders
     if (!m_attachedFiles.isEmpty()) {
         context += "Additional context:\n";
         for (const QString &path : m_attachedFiles) {
@@ -242,7 +237,6 @@ QString AiChatSidebar::getFullContext() const {
         context += "\n";
     }
 
-    // 3. Snippets
     if (!m_attachedSnippets.isEmpty()) {
         context += "Selected snippets:\n";
         for (const QString &snippet : m_attachedSnippets) {
@@ -282,7 +276,6 @@ void AiChatSidebar::addAttachedFile(const QString &filePath) {
     
     auto *chip = new AiContextChip(filePath, m_chipsContainer);
     
-    // Insert before the stretch at the end
     m_chipsLayout->insertWidget(m_chipsLayout->count() - 1, chip);
     
     connect(chip, &AiContextChip::removed, this, &AiChatSidebar::removeAttachedFile);
@@ -296,7 +289,6 @@ void AiChatSidebar::removeAttachedFile(const QString &filePath) {
         chip->deleteLater();
     }
     
-    // Hide scroll area if no more chips (delayed check because deleteLater)
     QTimer::singleShot(0, this, [this]() {
         if (m_attachedFiles.isEmpty()) {
             m_chipsScrollArea->hide();
@@ -304,11 +296,10 @@ void AiChatSidebar::removeAttachedFile(const QString &filePath) {
     });
 }
 
-// Better implementation using sender()
 void AiChatSidebar::clearChips() {
     m_attachedFiles.clear();
     m_attachedSnippets.clear();
-    while (m_chipsLayout->count() > 1) { // Keep the stretch
+    while (m_chipsLayout->count() > 1) {
         auto *item = m_chipsLayout->takeAt(0);
         if (item->widget()) {
             item->widget()->deleteLater();
@@ -320,7 +311,6 @@ void AiChatSidebar::clearChips() {
 
 void AiChatSidebar::clearHistory() {
     m_chatHistory.clear();
-    // Keep the last item which is the stretch
     while (m_historyLayout->count() > 1) {
         auto *item = m_historyLayout->takeAt(0);
         if (item->widget()) {
@@ -354,10 +344,8 @@ AiMessageWidget* AiChatSidebar::addMessage(const QString &text, bool isUser) {
     auto *msg = new AiMessageWidget(this);
     msg->setMessage(text, isUser);
     
-    // Insert before the stretch (which is at index count() - 1)
     m_historyLayout->insertWidget(m_historyLayout->count() - 1, msg);
     
-    // Scroll to bottom after layout update
     QTimer::singleShot(50, this, [this]() {
         m_scrollArea->verticalScrollBar()->setValue(m_scrollArea->verticalScrollBar()->maximum());
     });
@@ -365,10 +353,20 @@ AiMessageWidget* AiChatSidebar::addMessage(const QString &text, bool isUser) {
 }
 
 void AiChatSidebar::onSendClicked() {
+    if (m_sendButton->text() == "Stop") {
+        m_aiClient->abort();
+        m_sendButton->setText("Send");
+        if (m_pendingMessage) {
+            m_pendingMessage->setLoading(false);
+            m_pendingMessage->setMessage("Request canceled.", false);
+            m_pendingMessage = nullptr;
+        }
+        return;
+    }
+
     QString text = m_inputEdit->toPlainText().trimmed();
     if (text.isEmpty()) return;
 
-    // Assemble Prompt
     QString context = getFullContext();
     
     QString systemPrompt = "You are an AI assistant built into CodePlace Editor. Your goal is to help the user with their code. You cannot edit files directly. Use the provided context to answer questions.";
@@ -384,11 +382,10 @@ void AiChatSidebar::onSendClicked() {
     m_inputEdit->clear();
     clearChips();
 
-    // Prepare Payload
     auto &settings = Core::SettingsManager::instance();
     QString model = settings.aiSelectedModel();
     if (model.isEmpty()) {
-        addMessage("", false)->setError("No model selected. Please go to Preferences > AI and select a model.");
+        addMessage("", false)->setError("No model selected. Please go to AI Settings and select a model.");
         return;
     }
 
@@ -402,7 +399,6 @@ void AiChatSidebar::onSendClicked() {
     systemMsg["content"] = systemPrompt;
     messages.append(systemMsg);
 
-    // Provide the last 5 messages from history
     int historyCount = m_chatHistory.size();
     int startIdx = std::max(0, historyCount - 5);
     
@@ -415,14 +411,11 @@ void AiChatSidebar::onSendClicked() {
 
     payload["messages"] = messages;
 
-    // Send Request
     QString baseUrl = settings.aiProvider() == "OpenRouter" ? "https://openrouter.ai/api/v1" : settings.aiLocalUrl();
     QString apiKey = settings.aiProvider() == "OpenRouter" ? settings.aiOpenRouterKey() : "";
 
-    m_sendButton->setEnabled(false);
-    m_sendButton->setText("Thinking...");
+    m_sendButton->setText("Stop");
     
-    // Create pending message with loading spinner
     m_pendingMessage = addMessage("", false);
     m_pendingMessage->setLoading(true);
 
@@ -430,7 +423,6 @@ void AiChatSidebar::onSendClicked() {
 }
 
 void AiChatSidebar::onAiResponseReceived(const QString &message) {
-    m_sendButton->setEnabled(true);
     m_sendButton->setText("Send");
     
     if (m_pendingMessage) {
@@ -443,7 +435,6 @@ void AiChatSidebar::onAiResponseReceived(const QString &message) {
 }
 
 void AiChatSidebar::onAiErrorOccurred(const QString &error) {
-    m_sendButton->setEnabled(true);
     m_sendButton->setText("Send");
     
     QString errorMsg = "Error: " + error;
@@ -453,6 +444,10 @@ void AiChatSidebar::onAiErrorOccurred(const QString &error) {
     } else {
         addMessage("", false)->setError(errorMsg);
     }
+}
+
+void AiChatSidebar::onSettingsClicked() {
+    emit settingsRequested();
 }
 
 void AiChatSidebar::onContextClicked() {

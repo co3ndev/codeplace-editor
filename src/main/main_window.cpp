@@ -144,6 +144,8 @@ void MainWindow::setupLayout() {
     m_aiSidebar->setTabContainer(m_tabContainer);
     m_aiDock = createDockWidget("AI Chat", "aiDock", m_aiSidebar, Qt::RightDockWidgetArea);
 
+    connect(m_aiSidebar, &AiChatSidebar::settingsRequested, this, &MainWindow::onShowAiPreferences);
+
     tabifyDockWidget(m_terminalDock, m_problemsDock);
 
     m_sidebarDock->show();
@@ -405,7 +407,6 @@ void MainWindow::createMenus() {
     toggleStatusBarAction->setChecked(statusBar()->isVisible());
     m_actionMap["Toggle Status Bar"] = toggleStatusBarAction;
 
-    // Sync menu states before showing
     connect(appearanceSubMenu, &QMenu::aboutToShow, [=]() {
         toggleFileBrowserAction->setChecked(!m_sidebarDock->isHidden());
         toggleSearchAction->setChecked(!m_searchDock->isHidden());
@@ -588,6 +589,14 @@ void MainWindow::onFileSelected(const QString &filePath) {
 
 void MainWindow::onPreferences() {
     PreferencesDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        applySettings();
+        applyShortcuts();
+    }
+}
+void MainWindow::onShowAiPreferences() {
+    PreferencesDialog dialog(this);
+    dialog.setCurrentTab(3); // AI tab is at index 3
     if (dialog.exec() == QDialog::Accepted) {
         applySettings();
         applyShortcuts();

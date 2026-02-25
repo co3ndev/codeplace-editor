@@ -66,7 +66,6 @@ std::optional<SimpleHighlighter::Language> SimpleHighlighter::languageForName(co
     auto it = nameMap.find(n);
     if (it != nameMap.end()) return it.value();
     
-    // Fallback to extension check if name doesn't match
     return languageForExtension(n);
 }
 

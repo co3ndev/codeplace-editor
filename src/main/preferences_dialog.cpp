@@ -27,6 +27,11 @@ PreferencesDialog::PreferencesDialog(QWidget *parent) : QDialog(parent) {
     loadSettings();
     resize(600, 500);
 }
+void PreferencesDialog::setCurrentTab(int index) {
+    if (index >= 0 && index < tabWidget->count()) {
+        tabWidget->setCurrentIndex(index);
+    }
+}
 
 void PreferencesDialog::setupUi() {
     auto *mainLayout = new QVBoxLayout(this);

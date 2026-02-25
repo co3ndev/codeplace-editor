@@ -62,8 +62,18 @@ void AiClient::sendChatRequest(const QString &baseUrl, const QString &apiKey, co
         request.setRawHeader("Authorization", "Bearer " + apiKey.toUtf8());
     }
 
-    QNetworkReply *reply = m_networkManager->post(request, QJsonDocument(payload).toJson());
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    if (m_currentChatReply) {
+        m_currentChatReply->abort();
+        m_currentChatReply->deleteLater();
+    }
+
+    m_currentChatReply = m_networkManager->post(request, QJsonDocument(payload).toJson());
+    connect(m_currentChatReply, &QNetworkReply::finished, this, [this]() {
+        QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+        if (reply == m_currentChatReply) {
+            m_currentChatReply = nullptr;
+        }
+
         if (reply->error() == QNetworkReply::NoError) {
             QByteArray data = reply->readAll();
             QJsonDocument doc = QJsonDocument::fromJson(data);
@@ -78,7 +88,7 @@ void AiClient::sendChatRequest(const QString &baseUrl, const QString &apiKey, co
             } else {
                 emit errorOccurred("Invalid JSON response");
             }
-        } else {
+        } else if (reply->error() != QNetworkReply::OperationCanceledError) {
             QByteArray data = reply->readAll();
             QJsonDocument doc = QJsonDocument::fromJson(data);
             if (doc.isObject() && doc.object().contains("error")) {
@@ -93,4 +103,9 @@ void AiClient::sendChatRequest(const QString &baseUrl, const QString &apiKey, co
     });
 }
 
-
+void AiClient::abort() {
+    if (m_currentChatReply) {
+        m_currentChatReply->abort();
+        m_currentChatReply = nullptr;
+    }
+}

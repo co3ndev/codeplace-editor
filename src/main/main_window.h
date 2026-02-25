@@ -40,7 +40,7 @@ private slots:
     void onSaveAsFile();
     void onSaveAll();
     void onPreferences();
-
+    void onShowAiPreferences();
     void onFileSelected(const QString &filePath);
     void updateStatusBar();
 

@@ -24,6 +24,7 @@ class PreferencesDialog final : public QDialog {
 
 public:
     explicit PreferencesDialog(QWidget *parent = nullptr);
+    void setCurrentTab(int index);
 
 private slots:
     void onThemeChanged(const QString &themeName);

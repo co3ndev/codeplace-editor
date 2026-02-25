@@ -58,7 +58,6 @@ public:
         m_codeBrowser->setMarkdown(QString("```%1\n%2\n```").arg(lang, code));
         m_codeBrowser->setVisible(!m_isFolded);
         
-        // Setup syntax highlighting
         auto langOpt = Core::SimpleHighlighter::languageForName(lang);
         if (langOpt) {
             new Core::SimpleHighlighter(m_codeBrowser->document(), *langOpt);
@@ -255,7 +254,7 @@ void AiMessageWidget::setLoading(bool loading) {
         m_headerLayout->setDirection(QBoxLayout::LeftToRight);
         
         clearContentLayout();
-        addTextPart("..."); // Placeholder
+        addTextPart("...");
         
         layout()->setContentsMargins(10, 5, 50, 10);
         

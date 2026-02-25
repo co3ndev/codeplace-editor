@@ -66,7 +66,6 @@ void ThemeManager::refreshThemes() {
 bool ThemeManager::extractColors() {
     bool isDark = !m_currentTheme.contains("Light", Qt::CaseInsensitive);
     
-    // Default fallback colors (Dark/Tokyo Night default)
     m_colors[EditorBackground] = isDark ? QColor(26, 27, 38) : QColor(243, 244, 246);
     m_colors[EditorForeground] = isDark ? QColor(169, 177, 214) : QColor(36, 41, 46);
     m_colors[LineNumberBackground] = m_colors[EditorBackground];

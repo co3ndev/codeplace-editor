@@ -19,8 +19,12 @@
 #include <QDirIterator>
 #include "../editor/tab_container.h"
 #include "../core/project_manager.h"
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 class AiContextChip : public QFrame {
+    Q_OBJECT
 public:
     AiContextChip(const QString &filePath, QWidget *parent = nullptr) : QFrame(parent) {
         setObjectName("contextChip");
@@ -65,6 +69,10 @@ signals:
 };
 
 AiChatSidebar::AiChatSidebar(QWidget *parent) : QWidget(parent) {
+    m_aiClient = new AiClient(this);
+    connect(m_aiClient, &AiClient::responseReceived, this, &AiChatSidebar::onAiResponseReceived);
+    connect(m_aiClient, &AiClient::errorOccurred, this, &AiChatSidebar::onAiErrorOccurred);
+
     setupUi();
     connect(&Core::ThemeManager::instance(), &Core::ThemeManager::themeChanged, this, &AiChatSidebar::applyTheme);
     applyTheme();
@@ -182,20 +190,21 @@ QString AiChatSidebar::getFullContext() const {
     if (m_tabContainer) {
         QStringList paths = m_tabContainer->openFilePaths();
         if (!paths.isEmpty()) {
-            context += "=== Currently Open Files ===\n";
+            context += "Currently open files:\n";
             for (int i = 0; i < m_tabContainer->count(); ++i) {
                 QString path = paths[i];
                 if (path.isEmpty()) continue;
-                context += QString("--- File: %1 ---\n").arg(QFileInfo(path).fileName());
+                context += QString("--- %1 ---\n").arg(QFileInfo(path).fileName());
                 context += m_tabContainer->getFileContent(i);
-                context += "\n\n";
+                context += "\n";
             }
+            context += "\n";
         }
     }
 
     // 2. Attached Files & Folders
     if (!m_attachedFiles.isEmpty()) {
-        context += "=== Additional Context ===\n";
+        context += "Additional context:\n";
         for (const QString &path : m_attachedFiles) {
             QFileInfo fi(path);
             if (fi.isDir()) {
@@ -205,7 +214,7 @@ QString AiChatSidebar::getFullContext() const {
                     QString filePath = it.next();
                     QFile file(filePath);
                     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                        context += QString("  [File: %1]\n").arg(QDir(path).relativeFilePath(filePath));
+                        context += QString("[File: %1]\n").arg(QDir(path).relativeFilePath(filePath));
                         context += file.readAll();
                         context += "\n";
                     }
@@ -213,22 +222,24 @@ QString AiChatSidebar::getFullContext() const {
             } else {
                 QFile file(path);
                 if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                    context += QString("--- File: %1 ---\n").arg(fi.fileName());
+                    context += QString("--- %1 ---\n").arg(fi.fileName());
                     context += file.readAll();
-                    context += "\n\n";
+                    context += "\n";
                 }
             }
         }
+        context += "\n";
     }
 
     // 3. Snippets
     if (!m_attachedSnippets.isEmpty()) {
-        context += "=== Selected Snippets ===\n";
+        context += "Selected snippets:\n";
         for (const QString &snippet : m_attachedSnippets) {
             context += "--- Snippet ---\n";
             context += snippet;
-            context += "\n\n";
+            context += "\n";
         }
+        context += "\n";
     }
 
     return context;
@@ -323,7 +334,54 @@ void AiChatSidebar::onSendClicked() {
     addMessage(text, true);
     m_inputEdit->clear();
 
-    // Actual logic for sending to AI will be in Phase 5/6
+    // Assemble Prompt
+    QString context = getFullContext();
+    QString systemPrompt = "You are an AI assistant built into CodePlace Editor. Your goal is to help the user with their code. You cannot edit files directly. Use the provided context to answer questions.";
+    
+    QString finalPrompt = context;
+    if (!context.isEmpty()) {
+        finalPrompt += "\n";
+    }
+    finalPrompt += "User Message: " + text;
+
+    // Prepare Payload
+    auto &settings = Core::SettingsManager::instance();
+    QJsonObject payload;
+    payload["model"] = settings.aiSelectedModel();
+    payload["stream"] = false;
+
+    QJsonArray messages;
+    QJsonObject systemMsg;
+    systemMsg["role"] = "system";
+    systemMsg["content"] = systemPrompt;
+    messages.append(systemMsg);
+
+    QJsonObject userMsg;
+    userMsg["role"] = "user";
+    userMsg["content"] = finalPrompt;
+    messages.append(userMsg);
+
+    payload["messages"] = messages;
+
+    // Send Request
+    QString baseUrl = settings.aiProvider() == "OpenRouter" ? "https://openrouter.ai/api/v1" : settings.aiLocalUrl();
+    QString apiKey = settings.aiProvider() == "OpenRouter" ? settings.aiOpenRouterKey() : "";
+
+    m_sendButton->setEnabled(false);
+    m_sendButton->setText("Thinking...");
+    m_aiClient->sendChatRequest(baseUrl, apiKey, payload);
+}
+
+void AiChatSidebar::onAiResponseReceived(const QString &message) {
+    m_sendButton->setEnabled(true);
+    m_sendButton->setText("Send");
+    addMessage(message, false);
+}
+
+void AiChatSidebar::onAiErrorOccurred(const QString &error) {
+    m_sendButton->setEnabled(true);
+    m_sendButton->setText("Send");
+    addMessage("Error: " + error, false);
 }
 
 void AiChatSidebar::onContextClicked() {
@@ -354,5 +412,7 @@ void AiChatSidebar::onContextClicked() {
         }
     });
     
-    menu.exec(m_contextButton->mapToGlobal(QPoint(0, -menu.sizeHint().size().height())));
+    menu.exec(m_contextButton->mapToGlobal(QPoint(0, -menu.sizeHint().height())));
 }
+
+#include "ai_chat_sidebar.moc"

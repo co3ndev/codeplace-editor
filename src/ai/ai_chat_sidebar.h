@@ -10,6 +10,8 @@
 
 namespace Editor { class TabContainer; }
 
+class AiClient;
+
 class AiChatSidebar : public QWidget {
     Q_OBJECT
 public:
@@ -33,6 +35,8 @@ protected:
 private slots:
     void onSendClicked();
     void onContextClicked();
+    void onAiResponseReceived(const QString &message);
+    void onAiErrorOccurred(const QString &error);
 
 private:
     QScrollArea *m_scrollArea;
@@ -47,6 +51,7 @@ private:
     QScrollArea *m_chipsScrollArea;
 
     Editor::TabContainer *m_tabContainer = nullptr;
+    AiClient *m_aiClient;
     QList<QString> m_attachedFiles;
     QList<QString> m_attachedSnippets;
 

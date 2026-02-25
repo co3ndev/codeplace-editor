@@ -141,6 +141,7 @@ void MainWindow::setupLayout() {
     tabifyDockWidget(m_outlineDock, m_gitscmDock);
     
     m_aiSidebar = new AiChatSidebar(this);
+    m_aiSidebar->setTabContainer(m_tabContainer);
     m_aiDock = createDockWidget("AI Chat", "aiDock", m_aiSidebar, Qt::RightDockWidgetArea);
 
     tabifyDockWidget(m_terminalDock, m_problemsDock);

@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
     app.setApplicationDisplayName("CodePlace Editor");
     app.setOrganizationName("CodePlace");
     app.setOrganizationDomain("https://codeplace.net");
-    app.setApplicationVersion("0.1.3");
+    app.setApplicationVersion("0.2.0-pre1");
     app.setWindowIcon(QIcon(":/resources/codeplace.png"));
 
     QCommandLineParser parser;

@@ -7,85 +7,121 @@
 #include <QStyle>
 #include <QEnterEvent>
 #include <QPushButton>
+#include <QTimer>
+#include <QScrollBar>
+#include <QTextBlock>
+#include <QTextDocument>
 #include "../core/theme_manager.h"
 
 AiMessageWidget::AiMessageWidget(QWidget *parent) : QWidget(parent), m_isUser(false) {
-    auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(5, 5, 5, 5);
-    layout->setSpacing(2);
+    setupUi();
+    connect(&Core::ThemeManager::instance(), &Core::ThemeManager::themeChanged, this, &AiMessageWidget::applyTheme);
+    applyTheme();
+}
 
-    auto *headerLayout = new QHBoxLayout();
-    headerLayout->addStretch();
+void AiMessageWidget::setupUi() {
+    auto *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(10, 5, 10, 5);
+    mainLayout->setSpacing(4);
+
+    m_headerLayout = new QHBoxLayout();
+    m_headerLayout->setContentsMargins(5, 0, 5, 0);
     
-    m_copyButton = new QPushButton(this);
-    m_copyButton->setFixedSize(50, 24);
-    m_copyButton->setCursor(Qt::PointingHandCursor);
-    m_copyButton->setToolTip("Copy message");
-    m_copyButton->setFlat(true);
-    m_copyButton->setText("Copy");
+    m_nameLabel = new QLabel(this);
+    m_nameLabel->setStyleSheet("font-weight: bold; font-size: 11px; color: gray;");
     
-    m_copyButton->hide();
-    
-    headerLayout->addWidget(m_copyButton);
-    layout->addLayout(headerLayout);
+    m_headerLayout->addWidget(m_nameLabel);
+    m_headerLayout->addStretch();
+    mainLayout->addLayout(m_headerLayout);
 
     m_textBrowser = new QTextBrowser(this);
     m_textBrowser->setReadOnly(true);
     m_textBrowser->setOpenExternalLinks(true);
     m_textBrowser->setFrameShape(QFrame::NoFrame);
-    m_textBrowser->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-    
     m_textBrowser->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_textBrowser->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-
-    layout->addWidget(m_textBrowser);
-
-    connect(m_copyButton, &QPushButton::clicked, this, &AiMessageWidget::onCopyClicked);
-    connect(&Core::ThemeManager::instance(), &Core::ThemeManager::themeChanged, this, &AiMessageWidget::applyTheme);
+    m_textBrowser->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    m_textBrowser->document()->setDocumentMargin(10);
     
-    applyTheme();
+    mainLayout->addWidget(m_textBrowser);
 }
 
 void AiMessageWidget::setMessage(const QString &text, bool isUser) {
     m_isUser = isUser;
     m_rawText = text;
-    m_textBrowser->setMarkdown(text);
-
-    // Dynamic height adjustment
-    m_textBrowser->document()->setDocumentMargin(0);
-    int height = m_textBrowser->document()->size().height() + 10;
-    m_textBrowser->setMinimumHeight(height);
-    m_textBrowser->setMaximumHeight(height);
-
+    
+    m_nameLabel->setText(isUser ? "You" : "AI");
+    
+    // Set markdown with some base styling for code blocks
     updateStyleSheet();
-
+    
+    m_textBrowser->setMarkdown(text);
+    
+    // Initial height adjustment after layout
+    QTimer::singleShot(50, this, &AiMessageWidget::adjustHeight);
+    
     if (isUser) {
-        layout()->setContentsMargins(40, 2, 5, 5);
+        m_headerLayout->setDirection(QBoxLayout::RightToLeft);
+        static_cast<QVBoxLayout*>(layout())->setAlignment(m_textBrowser, Qt::AlignRight);
+        layout()->setContentsMargins(50, 5, 10, 10);
     } else {
-        layout()->setContentsMargins(5, 2, 40, 5);
+        m_headerLayout->setDirection(QBoxLayout::LeftToRight);
+        static_cast<QVBoxLayout*>(layout())->setAlignment(m_textBrowser, Qt::AlignLeft);
+        layout()->setContentsMargins(10, 5, 50, 10);
     }
 }
 
-void AiMessageWidget::applyTheme() {
-    updateStyleSheet();
+void AiMessageWidget::adjustHeight() {
+    // Get available width for text
+    int maxW = m_textBrowser->parentWidget()->width() - layout()->contentsMargins().left() - layout()->contentsMargins().right() - 10;
+    if (maxW < 100) {
+        maxW = this->width() - layout()->contentsMargins().left() - layout()->contentsMargins().right() - 22;
+    }
+    if (maxW < 100) maxW = 250;
+
+    // First, find the ideal width for the text
+    m_textBrowser->document()->setTextWidth(-1); // Allow document to find its ideal width
+    int idealW = static_cast<int>(m_textBrowser->document()->idealWidth()) + 25; // + padding
     
+    int finalW = qMin(idealW, maxW);
+
+    // Force a layout update with the final width
+    m_textBrowser->document()->setTextWidth(finalW);
+    
+    // Calculate required height
+    int height = static_cast<int>(m_textBrowser->document()->size().height()) + 5;
+    
+    m_textBrowser->setFixedSize(finalW, height);
+    
+    // Calculate total height including name label and margins
+    int totalHeight = height + m_nameLabel->height() + 
+                      layout()->contentsMargins().top() + 
+                      layout()->contentsMargins().bottom() + 
+                      layout()->spacing();
+                      
+    this->setFixedHeight(totalHeight);
+    updateGeometry();
+}
+
+void AiMessageWidget::resizeEvent(QResizeEvent *event) {
+    QWidget::resizeEvent(event);
+    adjustHeight();
+}
+
+void AiMessageWidget::applyTheme() {
     auto &tm = Core::ThemeManager::instance();
     QColor fg = tm.getColor(Core::ThemeManager::EditorForeground);
     QColor hoverBg = tm.getColor(Core::ThemeManager::LineHighlight);
     
-    m_copyButton->setStyleSheet(
-        QString("QPushButton {"
-        "  border: none;"
-        "  background: transparent;"
-        "  color: %1;"
-        "  font-size: 11px;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: %2;"
-        "  border-radius: 4px;"
-        "  color: %3;"
-        "}").arg(fg.name(QColor::HexArgb), hoverBg.name(QColor::HexArgb), fg.name())
-    );
+    m_nameLabel->setStyleSheet(QString("font-weight: bold; font-size: 11px; color: %1;").arg(fg.name()));
+    
+    updateStyleSheet();
+    
+    // If we have text, we need to refresh the document's internal stylesheet
+    if (!m_rawText.isEmpty()) {
+        m_textBrowser->setMarkdown(m_rawText);
+        adjustHeight();
+    }
 }
 
 void AiMessageWidget::updateStyleSheet() {
@@ -96,39 +132,29 @@ void AiMessageWidget::updateStyleSheet() {
     
     if (m_isUser) {
         bg = tm.getColor(Core::ThemeManager::SelectionBackground);
+        // Ensure contrast for text on selection background
         fg = (bg.lightness() > 140) ? QColor("#000000") : QColor("#ffffff");
     } else {
         bg = tm.getColor(Core::ThemeManager::LineHighlight);
         fg = tm.getColor(Core::ThemeManager::EditorForeground);
     }
 
+    // Markdown styling via document's default stylesheet
+    QString docCss = QString(
+        "body { color: %1; font-family: 'Inter', 'Segoe UI', sans-serif; font-size: 13px; }"
+        "code { font-family: 'JetBrains Mono', 'Fira Code', monospace; background-color: rgba(0,0,0,0.2); padding: 2px; border-radius: 3px; }"
+        "pre { font-family: 'JetBrains Mono', 'Fira Code', monospace; background-color: rgba(0,0,0,0.3); padding: 8px; border-radius: 5px; margin-top: 5px; margin-bottom: 5px; }"
+        "a { color: #3584e4; text-decoration: none; }"
+    ).arg(fg.name());
+    
+    m_textBrowser->document()->setDefaultStyleSheet(docCss);
+
     m_textBrowser->setStyleSheet(
         QString("QTextBrowser {"
         "  background-color: %1;"
         "  color: %2;"
-        "  border-radius: 8px;"
-        "  padding: 8px;"
-        "  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"
-        "  font-size: 13px;"
-        "}").arg(bg.name(QColor::HexArgb), fg.name(QColor::HexArgb))
+        "  border-radius: 12px;"
+        "  border: 1px solid %3;"
+        "}").arg(bg.name(QColor::HexArgb), fg.name(QColor::HexArgb), bg.darker(110).name())
     );
-}
-
-void AiMessageWidget::enterEvent(QEnterEvent *event) {
-    if (!m_isUser && m_copyButton) {
-        m_copyButton->show();
-    }
-    QWidget::enterEvent(event);
-}
-
-void AiMessageWidget::leaveEvent(QEvent *event) {
-    if (m_copyButton) {
-        m_copyButton->hide();
-    }
-    QWidget::leaveEvent(event);
-}
-
-void AiMessageWidget::onCopyClicked() {
-    QClipboard *clipboard = QApplication::clipboard();
-    clipboard->setText(m_rawText);
 }

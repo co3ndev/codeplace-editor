@@ -323,8 +323,9 @@ void AiChatSidebar::addMessage(const QString &text, bool isUser) {
     m_historyLayout->insertWidget(m_historyLayout->count() - 1, msg);
     
     // Scroll to bottom after layout update
-    QApplication::processEvents();
-    m_scrollArea->verticalScrollBar()->setValue(m_scrollArea->verticalScrollBar()->maximum());
+    QTimer::singleShot(100, this, [this]() {
+        m_scrollArea->verticalScrollBar()->setValue(m_scrollArea->verticalScrollBar()->maximum());
+    });
 }
 
 void AiChatSidebar::onSendClicked() {

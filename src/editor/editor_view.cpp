@@ -31,7 +31,7 @@ namespace Editor {
 
 EditorView::EditorView(QWidget *parent) : QPlainTextEdit(parent) {
     m_lineNumberArea = new LineNumberArea(this);
-    	
+
     connect(this, &EditorView::blockCountChanged, this, &EditorView::updateLineNumberAreaWidth);
     connect(this, &EditorView::updateRequest, this, &EditorView::updateLineNumberArea);
     connect(this, &EditorView::cursorPositionChanged, this, &EditorView::highlightCurrentLine);
@@ -43,7 +43,7 @@ EditorView::EditorView(QWidget *parent) : QPlainTextEdit(parent) {
     m_diagnosticWidget = new SymbolInfoWidget(this);
     m_diagnosticWidget->setDiagnosticMode(true);
     connect(this, &EditorView::cursorPositionChanged, m_diagnosticWidget, &SymbolInfoWidget::hide);
-	
+
     setMouseTracking(true);
     m_hoverTimer = new QTimer(this);
     m_hoverTimer->setSingleShot(true);
@@ -65,11 +65,11 @@ EditorView::EditorView(QWidget *parent) : QPlainTextEdit(parent) {
 
 void EditorView::applySettings() {
     auto &settings = Core::SettingsManager::instance();
-    
-    
+
+
     setTabStopDistance(fontMetrics().horizontalAdvance(' ') * settings.tabSize());
-    
-    
+
+
     setLineWrapMode(settings.wordWrap() ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap);
 }
 
@@ -87,7 +87,7 @@ void EditorView::setCompleter(QCompleter *completer) {
     m_completer->setCaseSensitivity(Qt::CaseInsensitive);
     QObject::connect(m_completer, QOverload<const QString &>::of(&QCompleter::activated),
                      this, &EditorView::insertCompletion);
-    
+
     if (m_completer->popup()) {
         connect(m_completer->popup()->selectionModel(), &QItemSelectionModel::currentChanged,
                 this, &EditorView::updateCompletionInfo);
@@ -129,7 +129,7 @@ int EditorView::lineNumberAreaWidth() {
     }
 
     int digitWidth = fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
-    return 5 + digitWidth + 5 + 15; 
+    return 5 + digitWidth + 5 + 15;
 }
 
 void EditorView::updateLineNumberAreaWidth(int ) {
@@ -165,7 +165,7 @@ void EditorView::highlightCurrentLine() {
         extraSelections.append(selection);
     }
 
-    
+
     QVariant findHighlightsVar = property("findHighlights");
     if (findHighlightsVar.isValid()) {
         auto findHighlights = findHighlightsVar.value<QList<QTextEdit::ExtraSelection>>();
@@ -193,13 +193,13 @@ void EditorView::onThemeChanged() {
 
 void EditorView::updateCompleterTheme() {
     if (!m_completer || !m_completer->popup()) return;
-    
+
     auto &tm = Core::ThemeManager::instance();
     QColor bg = tm.getColor(Core::ThemeManager::EditorBackground);
     QColor fg = tm.getColor(Core::ThemeManager::EditorForeground);
     QColor selBg = tm.getColor(Core::ThemeManager::LineHighlight);
     QColor border = bg.lighter(130);
-    
+
     QString style = QString(
         "QListView {"
         "  background-color: %1;"
@@ -210,7 +210,7 @@ void EditorView::updateCompleterTheme() {
         "  outline: 0;"
         "}"
     ).arg(bg.name(), fg.name(), border.name(), selBg.name());
-    
+
     m_completer->popup()->setStyleSheet(style);
     m_completer->popup()->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 }
@@ -218,7 +218,7 @@ void EditorView::updateCompleterTheme() {
 void EditorView::lineNumberAreaPaintEvent(QPaintEvent *event) {
     QPainter painter(m_lineNumberArea);
     auto &tm = Core::ThemeManager::instance();
-    
+
     painter.fillRect(event->rect(), tm.getColor(Core::ThemeManager::LineNumberBackground));
 
     QTextBlock block = firstVisibleBlock();
@@ -229,7 +229,7 @@ void EditorView::lineNumberAreaPaintEvent(QPaintEvent *event) {
     painter.setPen(tm.getColor(Core::ThemeManager::LineNumberForeground));
 
     int areaWidth = lineNumberAreaWidth();
-    
+
     int digitWidth = areaWidth - 5 - 5 - 15;
 
     while (block.isValid() && top <= event->rect().bottom()) {
@@ -237,8 +237,8 @@ void EditorView::lineNumberAreaPaintEvent(QPaintEvent *event) {
             QString number = QString::number(blockNumber + 1);
             painter.drawText(5, top, digitWidth, fontMetrics().height(),
                              Qt::AlignRight | Qt::AlignVCenter, number);
-            
-            
+
+
             auto *data = static_cast<Core::BlockUserData*>(block.userData());
             if (data && data->foldStart) {
                 painter.save();
@@ -261,27 +261,27 @@ void EditorView::lineNumberAreaPaintEvent(QPaintEvent *event) {
 void EditorView::toggleFold(int blockNumber) {
     QTextBlock block = document()->findBlockByNumber(blockNumber);
     if (!block.isValid()) return;
-    
+
     auto *data = static_cast<Core::BlockUserData*>(block.userData());
     if (!data || !data->foldStart) return;
-    
+
     data->folded = !data->folded;
-    
+
     bool hide = data->folded;
     int startLevel = data->foldingLevel;
-    
+
     QTextBlock nextBlock = block.next();
     while (nextBlock.isValid()) {
         auto *nextData = static_cast<Core::BlockUserData*>(nextBlock.userData());
-        
+
         if (nextData && nextData->foldingLevel < startLevel) break;
-        
+
         if (!nextData) { nextBlock = nextBlock.next(); continue; }
-        
+
         nextBlock.setVisible(!hide);
         nextBlock = nextBlock.next();
     }
-    
+
     document()->markContentsDirty(block.position(), document()->characterCount() - block.position());
     viewport()->update();
     updateLineNumberAreaWidth(0);
@@ -322,16 +322,16 @@ void EditorView::keyPressEvent(QKeyEvent *event) {
 
     if (handleShortcutKeys(event))
         return;
-    
+
     if (handleBackspaceKey(event))
         return;
-    
+
     if (handleEnterKey(event))
         return;
-    
+
     if (handleAutoClosingPairs(event))
         return;
-    
+
     if (handleTagClosing(event))
         return;
 
@@ -356,16 +356,16 @@ void EditorView::handleCompletionResult(const QString &filePath, const QJsonArra
             else if (item.contains("label")) completions.append(item["label"].toString());
         }
     }
-    
+
     auto *model = static_cast<QStringListModel*>(m_completer->model());
     model->setStringList(completions);
-    
+
     QRect cr = cursorRect();
     int prefixLen = m_completer->completionPrefix().length();
     QTextCursor tc = textCursor();
     tc.movePosition(QTextCursor::Left, QTextCursor::MoveAnchor, prefixLen);
     cr.setLeft(cursorRect(tc).left());
-    
+
     cr.translate(viewportMargins().left(), 0);
     cr.setWidth(m_completer->popup()->sizeHintForColumn(0)
                 + m_completer->popup()->verticalScrollBar()->sizeHint().width() + 20);
@@ -391,7 +391,7 @@ void EditorView::updateCompletionInfo() {
         if (docVal.isString()) doc = docVal.toString();
         else if (docVal.isObject()) doc = docVal.toObject()["value"].toString();
     }
-    
+
     if (doc.isEmpty() && item.contains("detail")) {
         doc = "*" + item["detail"].toString() + "*";
     }
@@ -418,13 +418,13 @@ bool EditorView::isHtmlLikeLanguage(const QString &fileType) const {
 void EditorView::wheelEvent(QWheelEvent *event) {
     if (m_infoWidget) m_infoWidget->hide();
     if (m_diagnosticWidget) m_diagnosticWidget->hide();
-    
+
     if (event->modifiers() & Qt::ControlModifier) {
         if (event->angleDelta().y() > 0)
             zoomIn();
         else
             zoomOut();
-        
+
         event->accept();
     } else {
         QPlainTextEdit::wheelEvent(event);
@@ -443,11 +443,11 @@ void EditorView::zoomOut(int range) {
 
 void EditorView::matchBrackets() {
     QList<QTextEdit::ExtraSelection> selections = extraSelections();
-    
+
     QTextCursor cursor = textCursor();
     QChar current = document()->characterAt(cursor.position());
     QChar prev = document()->characterAt(cursor.position() - 1);
-    
+
     auto highlightBracket = [&](int pos) {
         int maxPos = document()->characterCount();
         if (pos < 0 || pos >= maxPos) return;
@@ -491,7 +491,7 @@ void EditorView::matchBrackets() {
             pos += direction;
         }
     }
-    
+
     setExtraSelections(selections);
 }
 
@@ -504,7 +504,7 @@ void EditorView::onDiagnosticsReady(const QString &filePath, const QJsonArray &d
         QJsonObject range = diag["range"].toObject();
         QJsonObject start = range["start"].toObject();
         QJsonObject end = range["end"].toObject();
-        
+
         Diagnostic d;
         d.startLine = start["line"].toInt();
         d.startCol = start["character"].toInt();
@@ -520,33 +520,33 @@ void EditorView::onDiagnosticsReady(const QString &filePath, const QJsonArray &d
 
 bool EditorView::event(QEvent *event) {
     if (event->type() == QEvent::ToolTip) {
-        return true; 
+        return true;
     }
     return QPlainTextEdit::event(event);
 }
 
 void EditorView::mouseMoveEvent(QMouseEvent *event) {
     QPlainTextEdit::mouseMoveEvent(event);
-    
+
     QTextCursor cursor = cursorForPosition(event->pos());
     QRect cursorRc = cursorRect(cursor);
     bool overText = false;
-    
+
     if (abs(cursorRc.bottom() - event->pos().y()) <= fontMetrics().height() * 2) {
         if (event->pos().x() <= cursorRc.right() || cursor.positionInBlock() < cursor.block().length() - 1) {
             overText = true;
         }
     }
-    
+
     if (m_lastMousePos != event->pos()) {
         m_lastMousePos = event->pos();
-        
-        bool isWidgetVisible = (m_infoWidget && m_infoWidget->isVisible()) || 
+
+        bool isWidgetVisible = (m_infoWidget && m_infoWidget->isVisible()) ||
                                (m_diagnosticWidget && m_diagnosticWidget->isVisible());
-                               
+
         if (isWidgetVisible) {
             int distToTrigger = (event->pos() - m_hoverTriggerPos).manhattanLength();
-            
+
             QPoint gpos = event->globalPosition().toPoint();
             int distToWidget = 10000;
             auto checkDist = [&](QWidget* w) {
@@ -563,12 +563,12 @@ void EditorView::mouseMoveEvent(QMouseEvent *event) {
             };
             checkDist(m_infoWidget);
             checkDist(m_diagnosticWidget);
-            
+
             if (distToTrigger > 20 && distToWidget > 30) {
                 if (m_infoWidget) m_infoWidget->hide();
                 if (m_diagnosticWidget) m_diagnosticWidget->hide();
                 if (overText) {
-                    if (m_hoverTimer) m_hoverTimer->start(400); 
+                    if (m_hoverTimer) m_hoverTimer->start(400);
                 } else {
                     if (m_hoverTimer) m_hoverTimer->stop();
                 }
@@ -592,7 +592,7 @@ void EditorView::leaveEvent(QEvent *event) {
     bool overWidget = false;
     if (m_infoWidget && m_infoWidget->isVisible() && m_infoWidget->geometry().contains(globalPos)) overWidget = true;
     if (m_diagnosticWidget && m_diagnosticWidget->isVisible() && m_diagnosticWidget->geometry().contains(globalPos)) overWidget = true;
-    
+
     if (!overWidget) {
         m_hoverTimer->stop();
         if (m_infoWidget) m_infoWidget->hide();
@@ -606,15 +606,15 @@ void EditorView::onHoverTimeout() {
     QTextCursor cursor = cursorForPosition(m_lastMousePos);
     int line = cursor.blockNumber();
     int col = cursor.positionInBlock();
-    
+
     QString tooltipText;
     for (const Diagnostic &d : m_diagnostics) {
         if (line >= d.startLine && line <= d.endLine) {
             if (line == d.startLine && col < d.startCol) continue;
             if (line == d.endLine && col > d.endCol) continue;
-            
+
             if (!tooltipText.isEmpty()) tooltipText += "\n\n---\n\n";
-            
+
             QString severityStr;
             switch(d.severity) {
                 case 1: severityStr = "**Error**"; break;
@@ -622,15 +622,15 @@ void EditorView::onHoverTimeout() {
                 case 3: severityStr = "**Info**"; break;
                 default: severityStr = "**Hint**"; break;
             }
-            
+
             QString msg = d.message;
             msg.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
             msg.replace("\n", "\n\n");
-            
+
             tooltipText += severityStr + ":\n\n" + msg;
         }
     }
-    
+
     if (!tooltipText.isEmpty()) {
         m_diagnosticWidget->setContent(tooltipText);
         m_diagnosticWidget->showAt(viewport()->mapToGlobal(m_lastMousePos) + QPoint(10, 10));
@@ -647,7 +647,7 @@ void EditorView::mousePressEvent(QMouseEvent *event) {
 
 void EditorView::handleHoverResult(const QString &filePath, const QJsonObject &hover) {
     if (filePath != m_filePath) return;
-    
+
     QString contents;
     QJsonValue val = hover["contents"];
     if (val.isString()) {
@@ -663,7 +663,7 @@ void EditorView::handleHoverResult(const QString &filePath, const QJsonObject &h
     } else if (val.isObject()) {
         contents = val.toObject()["value"].toString();
     }
-    
+
     if (!contents.isEmpty()) {
         m_infoWidget->setContent(contents);
         m_infoWidget->showAt(QCursor::pos() + QPoint(10, -10));
@@ -671,13 +671,13 @@ void EditorView::handleHoverResult(const QString &filePath, const QJsonObject &h
 }
 
 void EditorView::handleRenameResult(const QString &, const QJsonObject &workspaceEdit) {
-    
+
     if (workspaceEdit.contains("changes")) {
         QJsonObject changes = workspaceEdit["changes"].toObject();
         for (auto it = changes.begin(); it != changes.end(); ++it) {
             QString fileUri = it.key();
             if (fileUri.startsWith("file://")) fileUri = QUrl(fileUri).toLocalFile();
-            
+
             if (fileUri == m_filePath) {
                 applyTextEdits(it.value().toArray());
             }
@@ -720,10 +720,10 @@ void EditorView::applyTextEdits(const QJsonArray &edits) {
     for (const Edit &e : sortedEdits) {
         QTextBlock startBlock = document()->findBlockByNumber(e.startLine);
         QTextBlock endBlock = document()->findBlockByNumber(e.endLine);
-        
+
         int startPos = startBlock.position() + e.startCol;
         int endPos = endBlock.position() + e.endCol;
-        
+
         cursor.setPosition(startPos);
         cursor.setPosition(endPos, QTextCursor::KeepAnchor);
         cursor.insertText(e.text);
@@ -747,7 +747,7 @@ void EditorView::handleDefinitionResult(const QString &filePath, const QJsonValu
 
     QString uri = location["uri"].toString();
     if (uri.startsWith("file://")) uri = QUrl(uri).toLocalFile();
-    
+
     QJsonObject range = location["range"].toObject();
     QJsonObject start = range["start"].toObject();
     int line = start["line"].toInt() + 1;
@@ -784,57 +784,57 @@ void EditorView::contextMenuEvent(QContextMenuEvent *event) {
 
     QMenu *menu = createStandardContextMenu();
     menu->addSeparator();
-    
+
     if (LspClient::LspManager::instance().hasActiveClient(m_filePath)) {
         QAction *defAction = menu->addAction("Go to Definition");
         connect(defAction, &QAction::triggered, this, &EditorView::requestGoToDefinition);
-        
+
         QAction *renameAction = menu->addAction("Rename Symbol");
         connect(renameAction, &QAction::triggered, this, &EditorView::requestRename);
-        
+
         QAction *formatAction = menu->addAction("Format Document");
         connect(formatAction, &QAction::triggered, this, &EditorView::requestFormatting);
     }
-    
+
     menu->exec(event->globalPos());
     delete menu;
 }
 
 void EditorView::paintEvent(QPaintEvent *event) {
     QPlainTextEdit::paintEvent(event);
-    
+
     if (m_diagnostics.isEmpty()) return;
-    
+
     QPainter painter(viewport());
-    
+
     QTextBlock block = firstVisibleBlock();
     int top = qRound(blockBoundingGeometry(block).translated(contentOffset()).top());
     int bottom = top + qRound(blockBoundingRect(block).height());
-    
+
     while (block.isValid() && top <= event->rect().bottom()) {
         if (block.isVisible() && bottom >= event->rect().top()) {
             int blockNum = block.blockNumber();
-            
+
             for (const Diagnostic &d : m_diagnostics) {
                 if (blockNum >= d.startLine && blockNum <= d.endLine) {
                     QColor color = Qt::red;
                     if (d.severity == 2) color = Qt::yellow;
                     else if (d.severity == 3) color = Qt::blue;
                     else if (d.severity == 4) color = Qt::gray;
-                    
+
                     QPen pen(color);
                     pen.setStyle(Qt::DotLine);
                     pen.setWidth(2);
                     painter.setPen(pen);
-                    
+
                     int startCol = (blockNum == d.startLine) ? d.startCol : 0;
                     int endCol = (blockNum == d.endLine) ? d.endCol : block.length() - 1;
                     if (endCol < startCol) endCol = block.length() - 1;
-                    
+
                     QTextCursor cursor(block);
                     cursor.setPosition(block.position() + startCol);
                     QRect startRect = cursorRect(cursor);
-                    
+
                     cursor.setPosition(block.position() + endCol);
                     QRect endRect;
                     if (endCol > startCol) {
@@ -843,16 +843,16 @@ void EditorView::paintEvent(QPaintEvent *event) {
                         endRect = startRect;
                         endRect.setWidth(fontMetrics().horizontalAdvance('W'));
                     }
-                    
+
                     int x1 = startRect.left();
                     int x2 = endRect.right();
                     if (x2 < x1) x2 = x1 + fontMetrics().horizontalAdvance('W');
-                    
+
                     int y = startRect.bottom() - 1;
-                    
+
                     QPainterPath path;
                     path.moveTo(x1, y);
-                    
+
                     int waveLen = 4;
                     int waveAmp = 2;
                     bool up = true;
@@ -878,7 +878,15 @@ bool EditorView::handleCompleterKeys(QKeyEvent *event) {
 
     switch (event->key()) {
     case Qt::Key_Enter:
-    case Qt::Key_Return:
+    case Qt::Key_Return: {
+        QModelIndex idx = m_completer->popup()->currentIndex();
+        if (idx.isValid()) {
+            insertCompletion(idx.data().toString());
+            m_completer->popup()->hide();
+        }
+        // Return false to allow the enter key to create a new line
+        return false;
+    }
     case Qt::Key_Tab: {
         QModelIndex idx = m_completer->popup()->currentIndex();
         if (idx.isValid()) {
@@ -891,7 +899,7 @@ bool EditorView::handleCompleterKeys(QKeyEvent *event) {
     case Qt::Key_Down:
     case Qt::Key_PageUp:
     case Qt::Key_PageDown:
-        return true; 
+        return true;
     case Qt::Key_Escape:
     case Qt::Key_Backtab:
         event->ignore();
@@ -901,6 +909,7 @@ bool EditorView::handleCompleterKeys(QKeyEvent *event) {
     }
     return false;
 }
+
 
 bool EditorView::handleShortcutKeys(QKeyEvent *) {
     return false;
@@ -916,19 +925,19 @@ bool EditorView::handleBackspaceKey(QKeyEvent *event) {
 
     QString line = cursor.block().text();
     int posInBlock = cursor.positionInBlock();
-    
+
     if (posInBlock > 0) {
         int indentLen = 0;
         while (indentLen < line.length() && line[indentLen].isSpace()) {
             indentLen++;
         }
-        
+
         if (posInBlock <= indentLen) {
             int tabSize = Core::SettingsManager::instance().tabSize();
             int spacesToDelete = posInBlock % tabSize;
             if (spacesToDelete == 0) spacesToDelete = tabSize;
-            
-            
+
+
             bool allSpaces = true;
             for (int i = posInBlock - spacesToDelete; i < posInBlock; ++i) {
                 if (!line[i].isSpace()) {
@@ -936,7 +945,7 @@ bool EditorView::handleBackspaceKey(QKeyEvent *event) {
                     break;
                 }
             }
-            
+
             if (allSpaces) {
                 cursor.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor, spacesToDelete);
                 cursor.removeSelectedText();
@@ -949,14 +958,14 @@ bool EditorView::handleBackspaceKey(QKeyEvent *event) {
         if (!cursor.hasSelection()) {
             QChar prev = document()->characterAt(cursor.position() - 1);
             QChar next = document()->characterAt(cursor.position());
-            
+
             bool isPair = (prev == '(' && next == ')') ||
                           (prev == '[' && next == ']') ||
                           (prev == '{' && next == '}') ||
                           (prev == '"' && next == '"') ||
                           (prev == '\'' && next == '\'') ||
                           (prev == '<' && next == '>');
-            
+
             if (isPair) {
                 cursor.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor);
                 cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, 2);
@@ -976,18 +985,18 @@ bool EditorView::handleEnterKey(QKeyEvent *event) {
 
     QTextCursor cursor = textCursor();
     QString line = cursor.block().text();
-    
+
     int indentLen = 0;
     while (indentLen < line.length() && line[indentLen].isSpace()) {
         indentLen++;
     }
     QString indent = line.left(indentLen);
-    
+
     QString trimmed = line.trimmed();
     if (trimmed.endsWith('{') || trimmed.endsWith(':') || trimmed.endsWith('[') || trimmed.endsWith('(')) {
         indent += "\t";
     }
-    
+
     cursor.insertText("\n" + indent);
     return true;
 }
@@ -1027,14 +1036,14 @@ bool EditorView::handleAutoClosingPairs(QKeyEvent *event) {
 
         // Only auto-close if next character is whitespace, a closing bracket, or end of line
         bool shouldAutoClose = current.isNull() || current.isSpace() || QString(")]}\"'>,;").contains(current);
-        
+
         if (shouldAutoClose) {
-            QChar closing = (text == "(") ? ')' : 
-                            (text == "[") ? ']' : 
-                            (text == "{") ? '}' : 
-                            (text == "\"") ? '"' : 
+            QChar closing = (text == "(") ? ')' :
+                            (text == "[") ? ']' :
+                            (text == "{") ? '}' :
+                            (text == "\"") ? '"' :
                             (text == "'") ? '\'' : '>';
-            
+
             cursor.insertText(text + closing);
             cursor.movePosition(QTextCursor::PreviousCharacter);
             setTextCursor(cursor);
@@ -1042,11 +1051,11 @@ bool EditorView::handleAutoClosingPairs(QKeyEvent *event) {
         }
     }
 
-    
+
     if (text == "}" || text == "]" || text == ")") {
         QString line = cursor.block().text();
         int posInBlock = cursor.positionInBlock();
-        
+
         bool onlyWhitespaceBefore = true;
         for (int i = 0; i < posInBlock; ++i) {
             if (!line[i].isSpace()) {
@@ -1054,18 +1063,18 @@ bool EditorView::handleAutoClosingPairs(QKeyEvent *event) {
                 break;
             }
         }
-        
+
         if (onlyWhitespaceBefore) {
             QChar closing = text[0];
             QChar opening = (closing == '}') ? '{' : (closing == ']' ? '[' : '(');
-            
+
             int depth = 1;
             int currentPos = cursor.position() - 1;
             while (currentPos >= 0) {
                 QChar c = document()->characterAt(currentPos);
                 if (c == closing) depth++;
                 else if (c == opening) depth--;
-                
+
                 if (depth == 0) {
                     QTextBlock matchBlock = document()->findBlock(currentPos);
                     QString matchLine = matchBlock.text();
@@ -1073,7 +1082,7 @@ bool EditorView::handleAutoClosingPairs(QKeyEvent *event) {
                     while (matchIndent < matchLine.length() && matchLine[matchIndent].isSpace()) {
                         matchIndent++;
                     }
-                    
+
                     QString newIndent = matchLine.left(matchIndent);
                     cursor.beginEditBlock();
                     cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
@@ -1096,7 +1105,7 @@ bool EditorView::handleTagClosing(QKeyEvent *event) {
 
     QTextCursor cursor = textCursor();
     bool overtyping = (document()->characterAt(cursor.position()) == '>');
-    
+
     int pos = cursor.position();
     QTextBlock block = cursor.block();
     QString blockText = block.text();
@@ -1108,14 +1117,14 @@ bool EditorView::handleTagClosing(QKeyEvent *event) {
             start = i;
             break;
         } else if (blockText[i] == '>') {
-            break; 
+            break;
         }
     }
 
     if (start != -1 && start < posInBlock) {
         QString tagContent = blockText.mid(start + 1, posInBlock - start - 1).trimmed();
         QString tagName = tagContent.split(QRegularExpression("\\s+")).first();
-        
+
         if (!tagName.isEmpty() && !tagName.startsWith("/") && !tagName.startsWith("!") && !tagContent.endsWith("/")) {
             if (overtyping) {
                 cursor.movePosition(QTextCursor::NextCharacter);
@@ -1161,7 +1170,7 @@ void EditorView::updateCompleterPopup(QKeyEvent *event) {
     QTextCursor tc = textCursor();
     tc.movePosition(QTextCursor::Left, QTextCursor::MoveAnchor, prefixLen);
     cr.setLeft(cursorRect(tc).left());
-    
+
     cr.translate(viewportMargins().left(), 0);
     cr.setWidth(m_completer->popup()->sizeHintForColumn(0)
                 + m_completer->popup()->verticalScrollBar()->sizeHint().width() + 20);
@@ -1228,11 +1237,11 @@ QString EditorView::getCommentPrefix() const {
     } else if (ext == "py" || ext == "rb" || ext == "sh" || ext == "yaml" || ext == "yml" || ext == "cmake") {
         return "#";
     } else if (ext == "html" || ext == "xml") {
-        return "<!--"; 
+        return "<!--";
     } else if (ext == "css") {
-        return "/*"; 
+        return "/*";
     }
     return "//";
 }
 
-} 
+}

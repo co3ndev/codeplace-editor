@@ -22,7 +22,7 @@ public:
     bool isLanguageSupported(const QString &language) const;
     bool hasActiveClient(const QString &filePath) const;
     LspClient* getClient(const QString &language, const QString &rootPath = QString());
-    
+
     void setProjectRoot(const QString &path);
     void startClient(const QString &language, const QString &rootPath);
     void stopClient(const QString &language);
@@ -31,7 +31,7 @@ public:
     void documentOpened(const QString &filePath, const QString &content, const QString &languageId);
     void documentChanged(const QString &filePath, const QString &content, int version);
     void documentClosed(const QString &filePath);
-    
+
     void requestCompletion(const QString &filePath, int line, int column);
     void requestHover(const QString &filePath, int line, int column);
     void requestDefinition(const QString &filePath, int line, int column);
@@ -40,10 +40,10 @@ public:
     void requestFormatting(const QString &filePath);
     void requestDocumentSymbols(const QString &filePath);
     void requestCodeAction(const QString &filePath, int startLine, int startCol, int endLine, int endCol, const QJsonArray &diagnostics);
-    
+
     void indexProject(const QString &rootPath);
     void indexFile(const QString &filePath);
-    
+
 signals:
     void diagnosticsReady(const QString &filePath, const QJsonArray &diagnostics);
     void completionReady(const QString &filePath, const QJsonArray &items);
@@ -58,36 +58,43 @@ signals:
 private:
     LspManager();
     ~LspManager() override;
-    
+
     LspManager(const LspManager&) = delete;
     LspManager& operator=(const LspManager&) = delete;
-    
+
+    static constexpr int MAX_PENDING_BUFFER_SIZE = 104857600; // 100MB
+    int m_pendingBufferSize = 0;
+
+    bool canAddToPending(const QString &content, const QString &filePath);
+    void evictOldestPending();
+
     struct PendingDocument {
         QString content;
         QString languageId;
         int version;
         bool isFromEditor;
+        qint64 timestamp;
     };
-    
+
     void indexNextBatch();
 
     QTimer *m_indexTimer;
     QStringList m_indexQueue;
 
     QMap<QString, PendingDocument> m_pendingDocuments;
-    QSet<QString> m_addedFiles; 
+    QSet<QString> m_addedFiles;
 
     QString getLanguageForFile(const QString &filePath) const;
     QStringList getArguments(const QString &argsString) const;
 
     std::map<QString, std::unique_ptr<LspClient>> m_clients;
-    
+
     QMap<QString, QString> m_openFiles;
     QMap<QString, QString> m_indexedFiles;
     QMap<QString, int> m_fileVersions;
     QString m_projectRoot;
 };
 
-} 
+}
 
-#endif 
+#endif

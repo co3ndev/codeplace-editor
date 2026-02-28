@@ -31,17 +31,17 @@ LspManager::~LspManager() {
 
 bool LspManager::isLanguageSupported(const QString &language) const {
     if (language.isEmpty() || language == "Unknown") return false;
-    
+
     QString prefix = "lsp/" + language + "/";
     auto &settings = Core::SettingsManager::instance();
-    
+
     bool enabled = settings.value(prefix + "enabled", false).toBool();
     QString executable = settings.value(prefix + "executable", "").toString();
-    
+
     if (!enabled || executable.isEmpty()) {
         qDebug() << "LSP NOT Supported for" << language << "(enabled:" << enabled << "exe:" << executable << ")";
     }
-    
+
     return enabled && !executable.isEmpty();
 }
 
@@ -73,17 +73,17 @@ LspClient* LspManager::getClient(const QString &language, const QString &rootPat
     if (finalRoot.isEmpty()) finalRoot = QDir::homePath();
 
     startClient(language, finalRoot);
-    
+
     auto itFinal = m_clients.find(language);
     return (itFinal != m_clients.end()) ? itFinal->second.get() : nullptr;
 }
 
 void LspManager::setProjectRoot(const QString &path) {
     if (m_projectRoot == path) return;
-    
+
     m_projectRoot = path;
     qDebug() << "LSP Project Root set to:" << m_projectRoot;
-    
+
     if (!m_projectRoot.isEmpty()) {
         indexProject(m_projectRoot);
     }
@@ -96,14 +96,14 @@ void LspManager::startClient(const QString &language, const QString &rootPath) {
 
     QString prefix = "lsp/" + language + "/";
     auto &settings = Core::SettingsManager::instance();
-    
+
     QString executable = settings.value(prefix + "executable", "").toString();
     QString argsString = settings.value(prefix + "args", "").toString();
     QStringList args = getArguments(argsString);
 
     auto clientPtr = std::make_unique<LspClient>(language);
     LspClient *client = clientPtr.get();
-    
+
     connect(client, &LspClient::publishDiagnostics, this, [this](const QString &uri, const QJsonArray &diagnostics) {
         emit diagnosticsReady(uri, diagnostics);
     });
@@ -111,26 +111,26 @@ void LspManager::startClient(const QString &language, const QString &rootPath) {
     connect(client, &LspClient::stateChanged, this, [this, client, language](LspClient::State state) {
         if (state == LspClient::Initialized) {
             qDebug() << "LSP Client Initialized for" << language << "- Flushing pending documents";
-            
+
             QStringList toSend;
             for (auto it = m_pendingDocuments.begin(); it != m_pendingDocuments.end(); ++it) {
                 if (it.value().languageId == language) {
                     toSend << it.key();
                 }
             }
-            
-            
+
+
             for (const QString &filePath : toSend) {
                 if (m_addedFiles.contains(filePath)) {
                     m_pendingDocuments.remove(filePath);
                     continue;
                 }
-                
+
                 PendingDocument doc = m_pendingDocuments.take(filePath);
                 qDebug() << "Flushing didOpen for:" << filePath << "lang:" << doc.languageId;
                 client->didOpen(filePath, doc.content, doc.languageId, doc.version);
                 m_addedFiles.insert(filePath);
-                
+
                 if (doc.isFromEditor) {
                     m_openFiles[filePath] = language;
                     m_fileVersions[filePath] = doc.version;
@@ -175,7 +175,7 @@ void LspManager::startClient(const QString &language, const QString &rootPath) {
         connect(client, &LspClient::codeActionResult, this, [this](const QString &uri, const QJsonArray &actions) {
             emit codeActionReady(uri, actions);
         });
-        
+
     } else {
         qWarning() << "Failed to start LSP Server for" << language;
         client->deleteLater();
@@ -188,7 +188,7 @@ void LspManager::stopClient(const QString &language) {
         auto client = std::move(it->second);
         m_clients.erase(it);
         client->stop();
-        
+
         qDebug() << "Stopped LSP Server for" << language << "- Moving documents to pending";
 
         QStringList paths = m_addedFiles.values();
@@ -199,10 +199,10 @@ void LspManager::stopClient(const QString &language) {
                 lang = m_indexedFiles.value(path);
                 isFromEditor = false;
             }
-            
+
             if (lang == language) {
                 m_addedFiles.remove(path);
-                
+
                 if (!isFromEditor) {
                     QFile file(path);
                     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -239,7 +239,7 @@ void LspManager::documentOpened(const QString &filePath, const QString &content,
 
     QString fallbackRoot = QFileInfo(filePath).absolutePath();
     LspClient *client = getClient(languageId, fallbackRoot);
-    
+
     if (client && client->state() == LspClient::Initialized) {
         qDebug() << "Sending didOpen immediately";
         client->didOpen(filePath, content, languageId, 1);
@@ -262,10 +262,20 @@ void LspManager::documentChanged(const QString &filePath, const QString &content
             client->didChange(filePath, content, version);
         } else {
             qDebug() << "Buffering didChange as pending didOpen (client Initialized but file not added)";
-            m_pendingDocuments[filePath] = {content, languageId, version, true};
+            if (canAddToPending(content, filePath)) {
+                m_pendingDocuments[filePath] = {content, languageId, version, true, QDateTime::currentMSecsSinceEpoch()};
+                m_pendingBufferSize += content.size();
+            } else {
+                qWarning() << "Pending document buffer full, skipping:" << filePath;
+            }
         }
     } else {
-        m_pendingDocuments[filePath] = {content, languageId, version, true};
+        if (canAddToPending(content, filePath)) {
+            m_pendingDocuments[filePath] = {content, languageId, version, true, QDateTime::currentMSecsSinceEpoch()};
+            m_pendingBufferSize += content.size();
+        } else {
+            qWarning() << "Pending document buffer full, skipping:" << filePath;
+        }
     }
 }
 
@@ -284,9 +294,50 @@ void LspManager::documentClosed(const QString &filePath) {
         }
         m_addedFiles.remove(filePath);
     }
-    
+
     m_indexedFiles.remove(filePath);
 }
+
+bool LspManager::canAddToPending(const QString &content, const QString &filePath) {
+    int newSize = content.size();
+
+    // If file already exists, subtract old size
+    if (m_pendingDocuments.contains(filePath)) {
+        m_pendingBufferSize -= m_pendingDocuments[filePath].content.size();
+    }
+
+    // Check if adding would exceed limit
+    if (m_pendingBufferSize + newSize > MAX_PENDING_BUFFER_SIZE) {
+        // Try to make room
+        evictOldestPending();
+
+        // Check again after eviction
+        if (m_pendingBufferSize + newSize > MAX_PENDING_BUFFER_SIZE) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void LspManager::evictOldestPending() {
+    if (m_pendingDocuments.isEmpty()) return;
+
+    QString oldestKey = m_pendingDocuments.firstKey();
+    qint64 oldestTime = m_pendingDocuments[oldestKey].timestamp;
+
+    for (auto it = m_pendingDocuments.begin(); it != m_pendingDocuments.end(); ++it) {
+        if (it.value().timestamp < oldestTime) {
+            oldestKey = it.key();
+            oldestTime = it.value().timestamp;
+        }
+    }
+
+    m_pendingBufferSize -= m_pendingDocuments[oldestKey].content.size();
+    m_pendingDocuments.remove(oldestKey);
+    qDebug() << "Evicted oldest pending document:" << oldestKey;
+}
+
 
 void LspManager::indexProject(const QString &rootPath) {
     qDebug() << "Indexing project:" << rootPath;
@@ -298,16 +349,16 @@ void LspManager::indexProject(const QString &rootPath) {
     QDirIterator it(rootPath, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         QString path = it.next();
-        
-        
+
+
         if (path.contains("/.") || path.contains("\\.")) {
-            
-            if (path.contains("/.git/") || path.contains("\\.git\\") || 
+
+            if (path.contains("/.git/") || path.contains("\\.git\\") ||
                 path.contains("/.git") || path.contains("\\.git")) {
                 continue;
             }
         }
-        
+
         m_indexQueue.append(path);
     }
 
@@ -339,7 +390,7 @@ void LspManager::indexFile(const QString &filePath) {
 
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
-    
+
     QString content = QString::fromUtf8(file.readAll());
     file.close();
 
@@ -452,4 +503,4 @@ QStringList LspManager::getArguments(const QString &argsString) const {
 #endif
 }
 
-} 
+}

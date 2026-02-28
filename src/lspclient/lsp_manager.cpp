@@ -388,25 +388,56 @@ void LspManager::indexProject(const QString &rootPath) {
     if (rootPath.isEmpty()) return;
 
     QDirIterator it(rootPath, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
-    while (it.hasNext()) {
+
+    // ADD A COUNTER:
+    int fileCount = 0;
+
+    while (it.hasNext() && fileCount < MAX_INDEXED_FILES) {
         QString path = it.next();
 
-
-        if (path.contains("/.") || path.contains("\\.")) {
-
-            if (path.contains("/.git/") || path.contains("\\.git\\") ||
-                path.contains("/.git") || path.contains("\\.git")) {
-                continue;
-            }
+        if (shouldIndexFile(path)) {
+            m_indexQueue.append(path);
+            fileCount++;
         }
+    }
 
-        m_indexQueue.append(path);
+    if (fileCount >= MAX_INDEXED_FILES) {
+        qWarning() << "Indexing limited to" << MAX_INDEXED_FILES << "files. Project is very large.";
     }
 
     if (!m_indexQueue.isEmpty()) {
         m_indexTimer->start();
     }
 }
+
+bool LspManager::shouldIndexFile(const QString &filePath) const {
+    // 1. Check if file is supported
+    QString langId = getLanguageForFile(filePath);
+    if (!isLanguageSupported(langId)) return false;
+
+    // 2. Check file size (skip huge files)
+    QFileInfo fileInfo(filePath);
+    const qint64 MAX_FILE_SIZE = 10 * 1024 * 1024;  // 10MB
+    if (fileInfo.size() > MAX_FILE_SIZE) {
+        qDebug() << "Skipping large file:" << filePath << "(" << fileInfo.size() << "bytes)";
+        return false;
+    }
+
+    // 3. Check exclude patterns
+    for (const QString &pattern : m_excludePatterns) {
+        if (filePath.contains(pattern)) {
+            return false;
+        }
+    }
+
+    // 4. Check if already indexed or pending
+    if (m_addedFiles.contains(filePath) || m_pendingDocuments.contains(filePath)) {
+        return false;
+    }
+
+    return true;
+}
+
 
 void LspManager::indexNextBatch() {
     const int batchSize = 10;

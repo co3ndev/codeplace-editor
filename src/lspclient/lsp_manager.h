@@ -65,6 +65,8 @@ private:
     QTimer *m_cleanupTimer;  // For periodic cleanup
     static constexpr int CLEANUP_INTERVAL_MS = 60000;
 
+    void cleanupStaleEntries();
+
     static constexpr int MAX_PENDING_BUFFER_SIZE = 104857600; // 100MB
     int m_pendingBufferSize = 0;
 
@@ -78,6 +80,23 @@ private:
         bool isFromEditor;
         qint64 timestamp;
     };
+
+    static constexpr int MAX_INDEXED_FILES = 5000;  // Reasonable limit
+    QStringList m_excludePatterns = {
+        "*/node_modules/*",
+        "*/.git/*",
+        "*/build/*",
+        "*/dist/*",
+        "*/target/*",
+        "*/.venv/*",
+        "*/venv/*",
+        "*/.o",
+        "*/.a",
+        "*/.so",
+        "*/.dylib",
+    };
+
+    bool shouldIndexFile(const QString &filePath) const;
 
     void indexNextBatch();
 

@@ -20,6 +20,11 @@ LspManager::LspManager() : QObject(nullptr) {
     m_indexTimer->setInterval(10);
     connect(m_indexTimer, &QTimer::timeout, this, &LspManager::indexNextBatch);
 
+    m_cleanupTimer = new QTimer(this);
+    m_cleanupTimer->setInterval(CLEANUP_INTERVAL_MS);
+    connect(m_cleanupTimer, &QTimer::timeout, this, &LspManager::cleanupStaleEntries);
+    m_cleanupTimer->start();
+
     connect(&Core::ProjectManager::instance(), &Core::ProjectManager::projectRootChanged,
             this, &LspManager::setProjectRoot);
     setProjectRoot(Core::ProjectManager::instance().projectRoot());
@@ -28,6 +33,42 @@ LspManager::LspManager() : QObject(nullptr) {
 LspManager::~LspManager() {
     stopAllClients();
 }
+
+void LspManager::cleanupStaleEntries() {
+    QStringList filesToRemove;
+
+    // Check m_indexedFiles - these are files we indexed but may not still exist
+    for (auto it = m_indexedFiles.begin(); it != m_indexedFiles.end(); ++it) {
+        const QString &filePath = it.key();
+        // If not in m_addedFiles, it wasn't sent to LSP, safe to remove
+        if (!m_addedFiles.contains(filePath)) {
+            filesToRemove << filePath;
+        }
+    }
+
+    for (const QString &filePath : filesToRemove) {
+        m_indexedFiles.remove(filePath);
+        m_pendingDocuments.remove(filePath);
+        qDebug() << "Cleaned up stale indexed file:" << filePath;
+    }
+
+    // Check m_openFiles - these are editor-opened files
+    // Only safe to remove if they're not in m_addedFiles (not actually open in editor)
+    filesToRemove.clear();
+    for (auto it = m_openFiles.begin(); it != m_openFiles.end(); ++it) {
+        const QString &filePath = it.key();
+        if (!m_addedFiles.contains(filePath) && !m_pendingDocuments.contains(filePath)) {
+            filesToRemove << filePath;
+        }
+    }
+
+    for (const QString &filePath : filesToRemove) {
+        m_openFiles.remove(filePath);
+        m_fileVersions.remove(filePath);
+        qDebug() << "Cleaned up stale open file:" << filePath;
+    }
+}
+
 
 bool LspManager::isLanguageSupported(const QString &language) const {
     if (language.isEmpty() || language == "Unknown") return false;

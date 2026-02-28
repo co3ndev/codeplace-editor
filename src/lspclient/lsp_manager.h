@@ -62,6 +62,9 @@ private:
     LspManager(const LspManager&) = delete;
     LspManager& operator=(const LspManager&) = delete;
 
+    QTimer *m_cleanupTimer;  // For periodic cleanup
+    static constexpr int CLEANUP_INTERVAL_MS = 60000;
+
     static constexpr int MAX_PENDING_BUFFER_SIZE = 104857600; // 100MB
     int m_pendingBufferSize = 0;
 
